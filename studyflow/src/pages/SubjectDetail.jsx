@@ -1,0 +1,150 @@
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ChevronLeft, Plus, Sparkles } from 'lucide-react'
+import Button from '../components/ui/Button'
+import Modal from '../components/ui/Modal'
+import CardFormModal from '../components/cards/CardFormModal'
+import CardListItem from '../components/cards/CardListItem'
+import { mockSubjects } from '../data/mockSubjects'
+import { mockCardsBySubject, nextCardId } from '../data/mockCards'
+
+export default function SubjectDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const subject = mockSubjects.find((s) => s.id === id)
+
+  const [cards, setCards] = useState(() => mockCardsBySubject[id] ?? [])
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingCard, setEditingCard] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+
+  if (!subject) {
+    return (
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
+        <p className="text-neutral-500">Subject not found.</p>
+        <Button variant="secondary" className="mt-4" onClick={() => navigate('/subjects')}>
+          Back to Subjects
+        </Button>
+      </div>
+    )
+  }
+
+  const Icon = subject.icon
+
+  function openAddForm() {
+    setEditingCard(null)
+    setFormOpen(true)
+  }
+
+  function openEditForm(card) {
+    setEditingCard(card)
+    setFormOpen(true)
+  }
+
+  function handleSave({ front, back }) {
+    if (editingCard) {
+      setCards((prev) => prev.map((c) => (c.id === editingCard.id ? { ...c, front, back } : c)))
+    } else {
+      setCards((prev) => [...prev, { id: nextCardId(), front, back }])
+    }
+    setFormOpen(false)
+    setEditingCard(null)
+  }
+
+  function confirmDelete() {
+    setCards((prev) => prev.filter((c) => c.id !== pendingDelete.id))
+    setPendingDelete(null)
+  }
+
+  return (
+    <div className="p-4 md:p-8 max-w-3xl mx-auto flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={() => navigate('/subjects')}
+        className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 -ml-1"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Subjects
+      </button>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center justify-center w-11 h-11 rounded-md bg-primary text-white">
+            <Icon className="w-5 h-5" />
+          </span>
+          <div>
+            <h1 className="text-xl font-semibold text-neutral-900">{subject.name}</h1>
+            <p className="text-sm text-neutral-500">
+              {cards.length} card{cards.length === 1 ? '' : 's'} &middot; {subject.mastery}% mastery
+            </p>
+          </div>
+        </div>
+        {cards.length > 0 && (
+          <div className="flex gap-2 shrink-0">
+            <Button variant="secondary" onClick={() => navigate(`/subjects/${id}/generate`)}>
+              <Sparkles className="w-4 h-4" />
+              Generate
+            </Button>
+            <Button variant="primary" onClick={openAddForm}>
+              <Plus className="w-4 h-4" />
+              Add card
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {cards.length === 0 ? (
+        <div className="bg-white border border-dashed border-neutral-300 rounded-lg p-10 text-center flex flex-col items-center gap-4">
+          <p className="text-neutral-500">This subject has no cards yet.</p>
+          <div className="flex gap-2">
+            <Button variant="primary" onClick={openAddForm}>
+              <Plus className="w-4 h-4" />
+              Add cards
+            </Button>
+            <Button variant="secondary" onClick={() => navigate(`/subjects/${id}/generate`)}>
+              <Sparkles className="w-4 h-4" />
+              Generate from material
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {cards.map((card) => (
+            <CardListItem key={card.id} card={card} onEdit={openEditForm} onDelete={setPendingDelete} />
+          ))}
+        </div>
+      )}
+
+      <Button variant="primary" className="self-start" onClick={() => navigate('/review')}>
+        Start Review
+      </Button>
+
+      <CardFormModal
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false)
+          setEditingCard(null)
+        }}
+        onSave={handleSave}
+        initialCard={editingCard}
+      />
+
+      <Modal open={!!pendingDelete} onClose={() => setPendingDelete(null)} title="Delete this card?">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-neutral-600">
+            This permanently deletes &ldquo;{pendingDelete?.front}&rdquo; and its review history. This can&rsquo;t be
+            undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDelete}>
+              Delete card
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}

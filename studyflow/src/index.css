@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors — sampled from StudyFlow UI/UX Design Specification v1, Design System panel */
+  --color-primary: #5366DC;
+  --color-primary-dark: #4351B8;
+  --color-primary-light: #EEF0FD;
+
+  --color-secondary: #28B08A;
+  --color-secondary-light: #E7F8F3;
+
+  --color-accent: #F59620;
+  --color-accent-light: #FEF3E3;
+
+  --color-danger: #E54239;
+  --color-danger-light: #FCEAE9;
+
+  --color-neutral-900: #14171F;
+  --color-neutral-700: #3E495D;
+  --color-neutral-500: #6B7280;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-50: #FAFAFB;
+
+  /* Typography — Inter, spec's Heading 1/2/3 + Body Large/Body/Caption scale */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius — rounded but not pill, per spec */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-neutral-50);
+    color: var(--color-neutral-900);
+  }
+  /* Visible keyboard focus state everywhere — accessibility requirement, section 9 */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
