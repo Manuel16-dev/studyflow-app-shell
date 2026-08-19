@@ -12,6 +12,7 @@ export default function SignupPage() {
   const { signUp, signInWithGoogle } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
@@ -22,6 +23,8 @@ export default function SignupPage() {
     else if (!emailPattern.test(email)) next.email = 'Enter a valid email address.'
     if (!password) next.password = 'Create a password.'
     else if (password.length < 8) next.password = 'Password must be at least 8 characters.'
+    if (!confirmPassword) next.confirmPassword = 'Re-enter your password.'
+    else if (confirmPassword !== password) next.confirmPassword = "Passwords don't match."
     return next
   }
 
@@ -87,6 +90,15 @@ export default function SignupPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
+        />
+        <TextField
+          id="confirm-password"
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          error={errors.confirmPassword}
         />
 
         <Button type="submit" variant="primary" className="w-full mt-1" disabled={submitting}>

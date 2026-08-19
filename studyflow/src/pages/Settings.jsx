@@ -56,6 +56,7 @@ export default function Settings() {
   const [deleteError, setDeleteError] = useState(null)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [passwordError, setPasswordError] = useState(null)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
@@ -79,6 +80,10 @@ export default function Settings() {
       setPasswordError('Password must be at least 8 characters.')
       return
     }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("Passwords don't match.")
+      return
+    }
     setPasswordSaving(true)
     setPasswordError(null)
     const { error } = await updatePassword(newPassword)
@@ -89,6 +94,7 @@ export default function Settings() {
     }
     setPasswordSuccess(true)
     setNewPassword('')
+    setConfirmNewPassword('')
   }
 
   useEffect(() => {
@@ -406,7 +412,7 @@ export default function Settings() {
 
       <Modal
         open={passwordOpen}
-        onClose={() => { setPasswordOpen(false); setNewPassword(''); setPasswordError(null) }}
+        onClose={() => { setPasswordOpen(false); setNewPassword(''); setConfirmNewPassword(''); setPasswordError(null) }}
         title="Change password"
       >
         {passwordSuccess ? (
@@ -418,15 +424,27 @@ export default function Settings() {
                 {passwordError}
               </p>
             )}
-            <TextField
-              id="new-password"
-              type="password"
-              label="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <div className="flex flex-col gap-3">
+              <TextField
+                id="new-password"
+                type="password"
+                label="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <TextField
+                id="confirm-new-password"
+                type="password"
+                label="Confirm new password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+              />
+            </div>
             <div className="flex justify-end gap-2 mt-5">
-              <Button variant="secondary" onClick={() => { setPasswordOpen(false); setNewPassword('') }}>
+              <Button
+                variant="secondary"
+                onClick={() => { setPasswordOpen(false); setNewPassword(''); setConfirmNewPassword('') }}
+              >
                 Cancel
               </Button>
               <Button variant="primary" onClick={handlePasswordSave} disabled={passwordSaving}>
