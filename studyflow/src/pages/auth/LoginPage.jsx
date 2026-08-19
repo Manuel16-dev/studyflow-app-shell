@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import AuthLayout from './AuthLayout'
 import Button from '../../components/ui/Button'
 import TextField from '../../components/ui/TextField'
+import { useAuth } from '../../lib/AuthContext'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { signIn, signInWithGoogle } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState({})
@@ -21,21 +24,32 @@ export default function LoginPage() {
     return next
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) return
 
     setSubmitting(true)
-    // TODO: wire to Supabase auth (signInWithPassword) once backend auth is built.
-    // Existing users skip onboarding and land straight on the dashboard.
-    navigate('/')
+    const { error } = await signIn(email, password)
+    setSubmitting(false)
+    if (error) {
+      setErrors({ form: error.message })
+      return
+    }
+    // Existing users skip onboarding and land straight on the dashboard
+    // (or wherever RequireAuth redirected them from).
+    navigate(location.state?.from?.pathname ?? '/', { replace: true })
   }
 
   return (
     <AuthLayout title="Log in" subtitle="Welcome back — let's pick up where you left off.">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        {errors.form && (
+          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2">
+            {errors.form}
+          </p>
+        )}
         <TextField
           id="email"
           label="Email"
@@ -74,9 +88,9 @@ export default function LoginPage() {
           type="button"
           variant="secondary"
           className="w-full"
-          onClick={() => {
-            // TODO: wire to Supabase OAuth (Google) once backend auth is built.
-            navigate('/')
+          onClick={async () => {
+            const { error } = await signInWithGoogle()
+            if (error) setErrors({ form: error.message })
           }}
         >
           Continue with Google

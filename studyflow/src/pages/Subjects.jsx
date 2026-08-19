@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, MoreVertical, BookOpen } from 'lucide-react'
+import { Plus, Search, MoreVertical } from 'lucide-react'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import TextField from '../components/ui/TextField'
-import { mockSubjects, subjectColors } from '../data/mockSubjects'
+import { subjectColors } from '../data/mockSubjects'
+import { getSubjects, createSubject } from '../lib/subjectsStore'
+import { getCardCounts } from '../lib/cardsStore'
+import { resolveIcon } from '../lib/iconMap'
 
 const filters = [
   { id: 'all', label: 'All' },
@@ -18,8 +21,8 @@ function matchesFilter(subject, filterId) {
   return true
 }
 
-function SubjectCard({ subject, onOpen }) {
-  const Icon = subject.icon
+function SubjectCard({ subject, cardCount, onOpen }) {
+  const Icon = resolveIcon(subject.icon)
   const color = subjectColors.find((c) => c.name === subject.color)
 
   return (
@@ -38,7 +41,7 @@ function SubjectCard({ subject, onOpen }) {
       </div>
       <p className="text-sm font-semibold text-neutral-900">{subject.name}</p>
       <p className="text-xs text-neutral-500 mt-0.5">
-        {subject.cardCount} cards &middot; {subject.mastery}% mastery
+        {cardCount} card{cardCount === 1 ? '' : 's'} &middot; {subject.mastery}% mastery
       </p>
       <div className="h-1.5 rounded-full bg-neutral-100 mt-3 overflow-hidden">
         <div className="h-full bg-secondary rounded-full" style={{ width: `${subject.mastery}%` }} />
@@ -51,9 +54,15 @@ export default function Subjects() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
-  const [subjects, setSubjects] = useState(mockSubjects)
+  const [subjects, setSubjects] = useState([])
+  const [cardCounts, setCardCounts] = useState({})
   const [modalOpen, setModalOpen] = useState(false)
   const [newName, setNewName] = useState('')
+
+  useEffect(() => {
+    getSubjects().then(setSubjects)
+    getCardCounts().then(setCardCounts)
+  }, [])
 
   const filtered = useMemo(() => {
     return subjects.filter(
@@ -61,14 +70,12 @@ export default function Subjects() {
     )
   }, [subjects, query, activeFilter])
 
-  function handleCreate(e) {
+  async function handleCreate(e) {
     e.preventDefault()
     if (!newName.trim()) return
-    const id = newName.trim().toLowerCase().replace(/\s+/g, '-')
-    setSubjects((prev) => [
-      { id, name: newName.trim(), cardCount: 0, mastery: 0, color: 'blue', icon: BookOpen },
-      ...prev,
-    ])
+    const id = `${newName.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+    const subject = { id, name: newName.trim(), mastery: 0, color: 'blue', icon: 'book' }
+    setSubjects(await createSubject(subject))
     setNewName('')
     setModalOpen(false)
   }
@@ -121,7 +128,12 @@ export default function Subjects() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 pb-4">
           {filtered.map((subject) => (
-            <SubjectCard key={subject.id} subject={subject} onOpen={(id) => navigate(`/subjects/${id}`)} />
+            <SubjectCard
+              key={subject.id}
+              subject={subject}
+              cardCount={cardCounts[subject.id] ?? 0}
+              onOpen={(id) => navigate(`/subjects/${id}`)}
+            />
           ))}
         </div>
       )}

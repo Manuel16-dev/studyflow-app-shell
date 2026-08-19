@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, List, Sparkles, Clock, GraduationCap } from 'lucide-react'
 import Card from '../components/ui/Card'
@@ -6,13 +6,9 @@ import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { mockPlanBlocks, weekdayLabel } from '../data/mockPlan'
 import { mockExams } from '../data/mockExams'
-import { mockSubjects } from '../data/mockSubjects'
+import { getSubjects } from '../lib/subjectsStore'
 
 const DAY_OFFSETS = [0, 1, 2, 3, 4]
-
-function subjectName(subjectId) {
-  return mockSubjects.find((s) => s.id === subjectId)?.name ?? null
-}
 
 // Exam deadlines that fall inside this 5-day window, mapped to the matching
 // column. Reuses mockExams (Exams screen data) rather than a parallel
@@ -193,7 +189,13 @@ export default function Planner() {
 function RescheduleForm({ block, onSave, onCancel, onOpenSubject }) {
   const [dayOffset, setDayOffset] = useState(block.dayOffset)
   const [time, setTime] = useState(block.time)
-  const subject = subjectName(block.subjectId)
+  const [subject, setSubject] = useState(null)
+
+  useEffect(() => {
+    getSubjects().then((subjects) => {
+      setSubject(subjects.find((s) => s.id === block.subjectId)?.name ?? null)
+    })
+  }, [block.subjectId])
 
   return (
     <div className="flex flex-col gap-4">

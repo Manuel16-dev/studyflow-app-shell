@@ -1,34 +1,65 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, RotateCcw, TrendingDown, Check, Zap, PartyPopper } from 'lucide-react'
 import Button from '../components/ui/Button'
-import { mockReviewQueue, ratingIntervals } from '../data/mockReviewQueue'
+import { Rating, schedule, previewIntervals, formatDue } from '../lib/fsrs'
+import { getCardState, saveCardState, logReview } from '../lib/reviewStore'
+import { getDueQueue } from '../lib/reviewQueue'
+import { getSettings } from '../lib/settingsStore'
 
 const ratings = [
-  { id: 'again', label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger bg-danger-light hover:bg-danger hover:text-white' },
-  { id: 'hard', label: 'Hard', Icon: TrendingDown, classes: 'border-accent text-accent bg-accent-light hover:bg-accent hover:text-white' },
-  { id: 'good', label: 'Good', Icon: Check, classes: 'border-secondary text-secondary bg-secondary-light hover:bg-secondary hover:text-white' },
-  { id: 'easy', label: 'Easy', Icon: Zap, classes: 'border-blue-400 text-blue-500 bg-blue-50 hover:bg-blue-500 hover:text-white' },
+  { id: 'again', rating: Rating.Again, label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger bg-danger-light hover:bg-danger hover:text-white' },
+  { id: 'hard', rating: Rating.Hard, label: 'Hard', Icon: TrendingDown, classes: 'border-accent text-accent bg-accent-light hover:bg-accent hover:text-white' },
+  { id: 'good', rating: Rating.Good, label: 'Good', Icon: Check, classes: 'border-secondary text-secondary bg-secondary-light hover:bg-secondary hover:text-white' },
+  { id: 'easy', rating: Rating.Easy, label: 'Easy', Icon: Zap, classes: 'border-blue-400 text-blue-500 bg-blue-50 hover:bg-blue-500 hover:text-white' },
 ]
 
 export default function Review() {
   const navigate = useNavigate()
-  const [queue] = useState(mockReviewQueue)
+  const [queue, setQueue] = useState(null) // null = still loading
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
+  const [sessionStats, setSessionStats] = useState({ again: 0, hard: 0, good: 0, easy: 0 })
+  const [currentState, setCurrentState] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [requestRetention, setRequestRetention] = useState(0.9) // default until settings load
 
-  const total = queue.length
-  const current = queue[index]
-  const done = index >= total
+  useEffect(() => {
+    getDueQueue().then(setQueue)
+    getSettings().then((s) => {
+      if (s?.studyBehavior?.desiredRetention) setRequestRetention(s.studyBehavior.desiredRetention)
+    })
+  }, [])
+
+  const total = queue?.length ?? 0
+  const current = queue?.[index]
+  const done = queue !== null && index >= total
+
+  useEffect(() => {
+    if (!current) return
+    getCardState(current.id).then(setCurrentState)
+  }, [current])
+
+  // Predicted next-review time per rating, computed live from this card's
+  // actual FSRS state — replaces the old hardcoded ratingIntervals mock.
+  const preview = useMemo(
+    () => (currentState ? previewIntervals(currentState, Date.now(), requestRetention) : null),
+    [currentState, requestRetention]
+  )
 
   function handleReveal() {
     setRevealed(true) // State A -> State B
   }
 
-  function handleRate() {
-    // State C -> scheduler update -> State D.
-    // TODO: send rating to the FSRS scheduler/backend instead of just advancing locally.
+  async function handleRate(rating, ratingId) {
+    // State C -> FSRS scheduler update -> State D.
+    const { state: nextState } = schedule(currentState, rating, Date.now(), requestRetention)
+    setSaving(true)
+    await Promise.all([saveCardState(current.id, nextState), logReview(current.id, rating, nextState)])
+    setSaving(false)
+    setSessionStats((s) => ({ ...s, [ratingId]: s[ratingId] + 1 }))
     setRevealed(false)
+    setCurrentState(null)
     setIndex((i) => i + 1)
   }
 
@@ -42,7 +73,7 @@ export default function Review() {
         <div className="flex-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${(index / total) * 100}%` }}
+            style={{ width: `${total ? (index / total) * 100 : 100}%` }}
           />
         </div>
         <button
@@ -56,15 +87,27 @@ export default function Review() {
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4 py-10">
-        {done ? (
+        {queue === null ? (
+          <p className="text-sm text-neutral-400">Loading your review queue…</p>
+        ) : done ? (
           <div className="w-full max-w-sm text-center">
             <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary mx-auto mb-4">
               <PartyPopper className="w-6 h-6" />
             </div>
-            <h1 className="text-lg font-semibold text-neutral-900">Review complete!</h1>
+            <h1 className="text-lg font-semibold text-neutral-900">
+              {total ? 'Review complete!' : 'Nothing due right now'}
+            </h1>
             <p className="text-sm text-neutral-500 mt-1 mb-6">
-              Nice work — you got through all {total} cards due today.
+              {total
+                ? `Nice work — you got through all ${total} cards due today.`
+                : 'No cards are due yet. Add cards to a subject or check back later.'}
             </p>
+            <div className="flex justify-center gap-4 text-xs text-neutral-500 mb-6">
+              <span>{sessionStats.again} again</span>
+              <span>{sessionStats.hard} hard</span>
+              <span>{sessionStats.good} good</span>
+              <span>{sessionStats.easy} easy</span>
+            </div>
             <Button variant="primary" className="w-full" onClick={() => navigate('/')}>
               Back to Dashboard
             </Button>
@@ -92,16 +135,19 @@ export default function Review() {
 
             {revealed && (
               <div className="grid grid-cols-4 gap-2 mt-4">
-                {ratings.map(({ id, label, Icon, classes }) => (
+                {ratings.map(({ id, rating, label, Icon, classes }) => (
                   <button
                     key={id}
                     type="button"
-                    onClick={handleRate}
-                    className={`flex flex-col items-center gap-1 rounded-md border py-3 text-xs font-semibold transition-colors ${classes}`}
+                    onClick={() => handleRate(rating, id)}
+                    disabled={!preview || saving}
+                    className={`flex flex-col items-center gap-1 rounded-md border py-3 text-xs font-semibold transition-colors disabled:opacity-50 ${classes}`}
                   >
                     <Icon className="w-4 h-4" />
                     {label}
-                    <span className="text-[10px] font-normal opacity-80">{ratingIntervals[id]}</span>
+                    <span className="text-[10px] font-normal opacity-80">
+                      {preview ? formatDue(preview[id]) : '…'}
+                    </span>
                   </button>
                 ))}
               </div>

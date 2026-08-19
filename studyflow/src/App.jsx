@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './lib/AuthContext'
+import RequireAuth from './lib/RequireAuth'
 import AppShell from './nav/AppShell'
 import PlaceholderPage from './pages/PlaceholderPage'
 import LoginPage from './pages/auth/LoginPage'
@@ -34,28 +36,33 @@ const pages = {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/onboarding" element={<OnboardingWizard />} />
-      <Route path="/review" element={<Review />} />
-      <Route path="/subjects/:id/generate" element={<GenerateCards />} />
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
 
-      <Route element={<AppShell />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/subjects" element={<Subjects />} />
-        <Route path="/subjects/:id" element={<SubjectDetail />} />
-        <Route path="/flashcards" element={<PlaceholderPage {...pages.flashcards} />} />
-        <Route path="/practice" element={<PlaceholderPage {...pages.practice} />} />
-        <Route path="/tutor" element={<PlaceholderPage {...pages.tutor} />} />
-        <Route path="/exams" element={<Exams />} />
-        <Route path="/exams/:id" element={<ExamDetail />} />
-        <Route path="/calendar" element={<Planner />} />
-        <Route path="/progress" element={<Progress />} />
-        <Route path="/library" element={<PlaceholderPage {...pages.library} />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/profile" element={<PlaceholderPage {...pages.profile} />} />
-      </Route>
-    </Routes>
+        <Route element={<RequireAuth />}>
+          <Route path="/onboarding" element={<OnboardingWizard />} />
+          <Route path="/review" element={<Review />} />
+          <Route path="/subjects/:id/generate" element={<GenerateCards />} />
+
+          <Route element={<AppShell />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/subjects" element={<Subjects />} />
+            <Route path="/subjects/:id" element={<SubjectDetail />} />
+            <Route path="/flashcards" element={<PlaceholderPage {...pages.flashcards} />} />
+            <Route path="/practice" element={<PlaceholderPage {...pages.practice} />} />
+            <Route path="/tutor" element={<PlaceholderPage {...pages.tutor} />} />
+            <Route path="/exams" element={<Exams />} />
+            <Route path="/exams/:id" element={<ExamDetail />} />
+            <Route path="/calendar" element={<Planner />} />
+            <Route path="/progress" element={<Progress />} />
+            <Route path="/library" element={<PlaceholderPage {...pages.library} />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<PlaceholderPage {...pages.profile} />} />
+          </Route>
+        </Route>
+      </Routes>
+    </AuthProvider>
   )
 }

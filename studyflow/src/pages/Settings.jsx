@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Info, Download, Trash2, LogOut } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -7,7 +7,12 @@ import Toggle from '../components/ui/Toggle'
 import Slider from '../components/ui/Slider'
 import Modal from '../components/ui/Modal'
 import Badge from '../components/ui/Badge'
-import { mockSettings, studyTimeOptions, timezoneOptions } from '../data/mockSettings'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../lib/AuthContext'
+import { studyTimeOptions, timezoneOptions, mockSettings } from '../data/mockSettings'
+import { getSettings, updateSettingsSection } from '../lib/settingsStore'
+import { deleteAccount } from '../lib/authHelpers'
+import { exportMyData } from '../lib/exportData'
 
 function Select({ id, label, value, onChange, options }) {
   return (
@@ -40,15 +45,76 @@ const retentionCopy = (v) => {
 }
 
 export default function Settings() {
+  const navigate = useNavigate()
+  const { signOut, updatePassword } = useAuth()
   const [behavior, setBehavior] = useState(mockSettings.studyBehavior)
   const [notifications, setNotifications] = useState(mockSettings.notifications)
   const [appearance, setAppearance] = useState(mockSettings.appearance)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState(null)
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
 
-  const setB = (key, value) => setBehavior((s) => ({ ...s, [key]: value }))
-  const setN = (key, value) => setNotifications((s) => ({ ...s, [key]: value }))
-  const setA = (key, value) => setAppearance((s) => ({ ...s, [key]: value }))
+  async function handleExport() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      await exportMyData()
+    } catch (err) {
+      setExportError(err.message ?? 'Export failed — please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handlePasswordSave() {
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters.')
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordError(null)
+    const { error } = await updatePassword(newPassword)
+    setPasswordSaving(false)
+    if (error) {
+      setPasswordError(error.message)
+      return
+    }
+    setPasswordSuccess(true)
+    setNewPassword('')
+  }
+
+  useEffect(() => {
+    getSettings().then((real) => {
+      if (!real) return // trigger hasn't created the row yet — keep defaults
+      setBehavior(real.studyBehavior)
+      setNotifications(real.notifications)
+      setAppearance(real.appearance)
+    })
+  }, [])
+
+  // Each setter updates local state immediately (snappy UI) and persists
+  // the same patch to settingsStore so it survives a refresh.
+  const setB = (key, value) => {
+    setBehavior((s) => ({ ...s, [key]: value }))
+    updateSettingsSection('studyBehavior', { [key]: value })
+  }
+  const setN = (key, value) => {
+    setNotifications((s) => ({ ...s, [key]: value }))
+    updateSettingsSection('notifications', { [key]: value })
+  }
+  const setA = (key, value) => {
+    setAppearance((s) => ({ ...s, [key]: value }))
+    updateSettingsSection('appearance', { [key]: value })
+    if (key === 'reducedMotion') document.documentElement.classList.toggle('reduce-motion', value)
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto flex flex-col gap-4 pb-16">
@@ -245,6 +311,7 @@ export default function Settings() {
         <div className="flex flex-col gap-3">
           <button
             type="button"
+            onClick={() => { setPasswordOpen(true); setPasswordSuccess(false); setPasswordError(null) }}
             className="flex items-center justify-between text-left text-sm text-neutral-700 hover:text-neutral-900 py-1"
           >
             <span>Change password</span>
@@ -252,13 +319,20 @@ export default function Settings() {
           </button>
           <button
             type="button"
-            className="flex items-center justify-between text-left text-sm text-neutral-700 hover:text-neutral-900 py-1"
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center justify-between text-left text-sm text-neutral-700 hover:text-neutral-900 py-1 disabled:opacity-50"
           >
             <span className="flex items-center gap-2"><Download className="w-4 h-4" /> Export my data</span>
-            <span className="text-primary text-sm font-medium">Download</span>
+            <span className="text-primary text-sm font-medium">{exporting ? 'Preparing…' : 'Download'}</span>
           </button>
+          {exportError && <p className="text-xs text-danger">{exportError}</p>}
           <button
             type="button"
+            onClick={async () => {
+              await signOut()
+              navigate('/login', { replace: true })
+            }}
             className="flex items-center gap-2 text-left text-sm text-neutral-700 hover:text-neutral-900 py-1"
           >
             <LogOut className="w-4 h-4" /> Log out
@@ -290,6 +364,11 @@ export default function Settings() {
         <p className="text-sm text-neutral-700">
           This permanently deletes all subjects, flashcards, review history and progress. This cannot be undone.
         </p>
+        {deleteError && (
+          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mt-3">
+            {deleteError}
+          </p>
+        )}
         <div className="mt-4">
           <TextField
             id="delete-confirm"
@@ -299,13 +378,63 @@ export default function Settings() {
           />
         </div>
         <div className="flex justify-end gap-2 mt-5">
-          <Button variant="secondary" onClick={() => { setDeleteOpen(false); setDeleteConfirmText('') }}>
+          <Button
+            variant="secondary"
+            onClick={() => { setDeleteOpen(false); setDeleteConfirmText(''); setDeleteError(null) }}
+          >
             Cancel
           </Button>
-          <Button variant="danger" disabled={deleteConfirmText !== 'DELETE'}>
-            Delete my account
+          <Button
+            variant="danger"
+            disabled={deleteConfirmText !== 'DELETE' || deleting}
+            onClick={async () => {
+              setDeleting(true)
+              setDeleteError(null)
+              try {
+                await deleteAccount()
+                navigate('/login', { replace: true })
+              } catch (err) {
+                setDeleteError(err.message ?? 'Something went wrong — please try again.')
+                setDeleting(false)
+              }
+            }}
+          >
+            {deleting ? 'Deleting…' : 'Delete my account'}
           </Button>
         </div>
+      </Modal>
+
+      <Modal
+        open={passwordOpen}
+        onClose={() => { setPasswordOpen(false); setNewPassword(''); setPasswordError(null) }}
+        title="Change password"
+      >
+        {passwordSuccess ? (
+          <p className="text-sm text-secondary">Password updated.</p>
+        ) : (
+          <>
+            {passwordError && (
+              <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
+                {passwordError}
+              </p>
+            )}
+            <TextField
+              id="new-password"
+              type="password"
+              label="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 mt-5">
+              <Button variant="secondary" onClick={() => { setPasswordOpen(false); setNewPassword('') }}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handlePasswordSave} disabled={passwordSaving}>
+                {passwordSaving ? 'Saving…' : 'Update password'}
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   )

@@ -52,4 +52,12 @@
       transition-duration: 0.01ms !important;
     }
   }
+  /* Manual override for Settings > Appearance > Reduce motion — applied as
+     a class on <html> (see AuthContext.jsx) so it works regardless of the
+     OS-level preference above. */
+  .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

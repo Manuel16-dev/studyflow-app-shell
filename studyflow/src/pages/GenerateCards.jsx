@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FileText, Sparkles, RefreshCw, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import FlowTopBar from '../components/ui/FlowTopBar'
 import Button from '../components/ui/Button'
 import CardFormModal from '../components/cards/CardFormModal'
-import { mockSubjects } from '../data/mockSubjects'
+import { getSubject } from '../lib/subjectsStore'
+import { addCards, nextCardId } from '../lib/cardsStore'
 import { mockSource, mockGeneratedCards, regenerateOne } from '../data/mockGeneration'
 
 // Screen build order item 7 (AI-generated cards), spec section 4.4 + 8.
@@ -14,7 +15,7 @@ import { mockSource, mockGeneratedCards, regenerateOne } from '../data/mockGener
 export default function GenerateCards() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const subject = mockSubjects.find((s) => s.id === id)
+  const [subject, setSubject] = useState(undefined) // undefined = loading, null = not found
 
   const [step, setStep] = useState('source') // source | processing | error | review | done
   const [candidates, setCandidates] = useState([])
@@ -22,6 +23,10 @@ export default function GenerateCards() {
   const [editingCard, setEditingCard] = useState(null)
   const [regeneratingId, setRegeneratingId] = useState(null)
   const [regenError, setRegenError] = useState(null)
+
+  useEffect(() => {
+    getSubject(id).then((s) => setSubject(s ?? null))
+  }, [id])
 
   function startGeneration() {
     setStep('processing')
@@ -76,10 +81,22 @@ export default function GenerateCards() {
     setEditingCard(null)
   }
 
-  function approveSelected() {
-    // TODO: POST approved cards to the subject's trusted deck via backend.
-    // Local demo just confirms the count and returns to the subject.
+  async function approveSelected() {
+    // Writes straight into cardsStore — SubjectDetail reads from the same
+    // store, so approved cards actually show up there on return.
+    const approved = candidates
+      .filter((c) => selected.has(c.id))
+      .map((c) => ({ id: nextCardId(), front: c.front, back: c.back }))
+    await addCards(id, approved)
     setStep('done')
+  }
+
+  if (subject === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-neutral-400 text-sm">Loading…</p>
+      </div>
+    )
   }
 
   if (!subject) {

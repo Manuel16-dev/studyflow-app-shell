@@ -1,22 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Plus, Sparkles } from 'lucide-react'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import CardFormModal from '../components/cards/CardFormModal'
 import CardListItem from '../components/cards/CardListItem'
-import { mockSubjects } from '../data/mockSubjects'
-import { mockCardsBySubject, nextCardId } from '../data/mockCards'
+import { getSubject } from '../lib/subjectsStore'
+import { getCards, addCard, updateCard, deleteCard, nextCardId } from '../lib/cardsStore'
+import { resolveIcon } from '../lib/iconMap'
 
 export default function SubjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const subject = mockSubjects.find((s) => s.id === id)
-
-  const [cards, setCards] = useState(() => mockCardsBySubject[id] ?? [])
+  const [subject, setSubject] = useState(undefined) // undefined = loading, null = not found
+  const [cards, setCards] = useState([])
   const [formOpen, setFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
+
+  useEffect(() => {
+    getSubject(id).then((s) => setSubject(s ?? null))
+    getCards(id).then(setCards)
+  }, [id])
+
+  if (subject === undefined) {
+    return (
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
+        <p className="text-neutral-400 text-sm">Loading…</p>
+      </div>
+    )
+  }
 
   if (!subject) {
     return (
@@ -29,7 +42,7 @@ export default function SubjectDetail() {
     )
   }
 
-  const Icon = subject.icon
+  const Icon = resolveIcon(subject.icon)
 
   function openAddForm() {
     setEditingCard(null)
@@ -41,18 +54,18 @@ export default function SubjectDetail() {
     setFormOpen(true)
   }
 
-  function handleSave({ front, back }) {
+  async function handleSave({ front, back }) {
     if (editingCard) {
-      setCards((prev) => prev.map((c) => (c.id === editingCard.id ? { ...c, front, back } : c)))
+      setCards(await updateCard(id, editingCard.id, { front, back }))
     } else {
-      setCards((prev) => [...prev, { id: nextCardId(), front, back }])
+      setCards(await addCard(id, { id: nextCardId(), front, back }))
     }
     setFormOpen(false)
     setEditingCard(null)
   }
 
-  function confirmDelete() {
-    setCards((prev) => prev.filter((c) => c.id !== pendingDelete.id))
+  async function confirmDelete() {
+    setCards(await deleteCard(id, pendingDelete.id))
     setPendingDelete(null)
   }
 

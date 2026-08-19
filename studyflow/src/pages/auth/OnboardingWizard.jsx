@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FlowTopBar from '../../components/ui/FlowTopBar'
 import Button from '../../components/ui/Button'
+import { updateProfile } from '../../lib/profileStore'
+import { updateSettingsSection } from '../../lib/settingsStore'
 
 const studyForOptions = ['University', 'High school', 'Certification', 'Self-study']
 
@@ -10,6 +12,7 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(0) // 0 = studying for, 1 = daily goal
   const [studyFor, setStudyFor] = useState(null)
   const [dailyGoal, setDailyGoal] = useState(30)
+  const [saving, setSaving] = useState(false)
 
   function selectStudyFor(option) {
     setStudyFor(option)
@@ -17,8 +20,12 @@ export default function OnboardingWizard() {
     setStep(1)
   }
 
-  function finishOnboarding() {
-    // TODO: persist studyFor + dailyGoal to the user's profile once backend is wired.
+  async function finishOnboarding() {
+    setSaving(true)
+    await Promise.all([
+      updateProfile({ study_for: studyFor }),
+      updateSettingsSection('studyBehavior', { dailyTargetMinutes: dailyGoal }),
+    ])
     navigate('/')
   }
 
@@ -86,8 +93,8 @@ export default function OnboardingWizard() {
               <span>90 min</span>
             </div>
 
-            <Button variant="primary" className="w-full" onClick={finishOnboarding}>
-              Start studying
+            <Button variant="primary" className="w-full" onClick={finishOnboarding} disabled={saving}>
+              {saving ? 'Saving…' : 'Start studying'}
             </Button>
           </div>
         )}

@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react'
 import { TrendingUp, Layers, Target } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import SimpleBarChart from '../components/charts/SimpleBarChart'
-import { mockSubjects } from '../data/mockSubjects'
+import { getSubjects } from '../lib/subjectsStore'
 import { mockNeedsAttention } from '../data/mockDashboard'
 import {
   mockRetentionTrend,
@@ -28,6 +29,10 @@ function Kpi({ icon: Icon, label, value }) {
 }
 
 export default function Progress() {
+  const [subjects, setSubjects] = useState([])
+  useEffect(() => {
+    getSubjects().then(setSubjects)
+  }, [])
   const weekTotal = mockCardsReviewedTrend.reduce((sum, d) => sum + d.value, 0)
 
   return (
@@ -67,7 +72,7 @@ export default function Progress() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="Mastery by subject">
           <div className="flex flex-col gap-3">
-            {mockSubjects.map((s) => (
+            {subjects.map((s) => (
               <div key={s.id}>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="text-neutral-700">{s.name}</span>

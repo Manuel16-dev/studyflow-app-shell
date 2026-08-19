@@ -1,4 +1,10 @@
 // TODO: replace with real data from FastAPI/Supabase once backend is wired.
+// reviewsDue/newCards/upcomingExams/studyPlan were moved to live stores
+// (see Dashboard.jsx) — mockKpis/mockContinueReview keep those keys only as
+// unused fallbacks for now, don't trust them for those fields.
+// mockNeedsAttention and mockRecentActivity are still fully mock: neither
+// has a real source yet — mastery has no per-topic model (cards only carry
+// subjectId, not topic), and there's no review/activity event log at all.
 export const mockUser = {
   name: 'Emma',
   streakDays: 12,
