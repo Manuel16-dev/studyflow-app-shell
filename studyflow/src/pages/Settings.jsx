@@ -10,7 +10,8 @@ import Badge from '../components/ui/Badge'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { studyTimeOptions, timezoneOptions, mockSettings } from '../data/mockSettings'
-import { getSettings, updateSettingsSection } from '../lib/settingsStore'
+import { getSettings, updateSettingsSection, applyTextSizeClass } from '../lib/settingsStore'
+import { subscribeToPush, unsubscribeFromPush } from '../lib/pushStore'
 import { deleteAccount } from '../lib/authHelpers'
 import { exportMyData } from '../lib/exportData'
 
@@ -24,7 +25,7 @@ function Select({ id, label, value, onChange, options }) {
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 bg-white focus-visible:outline-2 focus-visible:outline-primary"
+        className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 bg-surface focus-visible:outline-2 focus-visible:outline-primary"
       >
         {options.map((opt) =>
           typeof opt === 'string' ? (
@@ -46,7 +47,7 @@ const retentionCopy = (v) => {
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { signOut, updatePassword } = useAuth()
+  const { signOut, updatePassword, theme, setTheme } = useAuth()
   const [behavior, setBehavior] = useState(mockSettings.studyBehavior)
   const [notifications, setNotifications] = useState(mockSettings.notifications)
   const [appearance, setAppearance] = useState(mockSettings.appearance)
@@ -62,6 +63,7 @@ export default function Settings() {
   const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const [pushError, setPushError] = useState(null)
 
   async function handleExport() {
     setExporting(true)
@@ -116,10 +118,40 @@ export default function Settings() {
     setNotifications((s) => ({ ...s, [key]: value }))
     updateSettingsSection('notifications', { [key]: value })
   }
+
+  // The "push" toggle is the one notification setting with real browser
+  // wiring behind it (it drives an actual Push API subscription, not just
+  // a saved preference) — so unlike the others, it needs its own handler
+  // that can fail (permission denied) and revert the toggle if it does.
+  async function handlePushToggle(value) {
+    setPushError(null)
+    setNotifications((s) => ({ ...s, push: value }))
+    try {
+      if (value) {
+        await subscribeToPush()
+      } else {
+        await unsubscribeFromPush()
+      }
+      await updateSettingsSection('notifications', { push: value })
+    } catch (err) {
+      setNotifications((s) => ({ ...s, push: !value })) // revert — the subscribe/unsubscribe didn't actually happen
+      setPushError(err.message ?? 'Something went wrong enabling push notifications.')
+    }
+  }
   const setA = (key, value) => {
+    // Theme goes through AuthContext's shared setTheme (persists to
+    // Supabase, applies the class, updates the one source of truth that
+    // the floating theme switcher also reads) rather than being written
+    // twice from two different places.
+    if (key === 'theme') {
+      setTheme(value)
+      setAppearance((s) => ({ ...s, theme: value }))
+      return
+    }
     setAppearance((s) => ({ ...s, [key]: value }))
     updateSettingsSection('appearance', { [key]: value })
     if (key === 'reducedMotion') document.documentElement.classList.toggle('reduce-motion', value)
+    if (key === 'textSize') applyTextSizeClass(value)
   }
 
   return (
@@ -179,25 +211,34 @@ export default function Settings() {
             options={timezoneOptions}
           />
         </div>
+        <p className="text-xs text-neutral-500 mt-2">
+          If push notifications are on, your review reminder arrives once a day during this window
+          (evening ≈ 6–9pm, in your timezone above) — not the moment a card becomes due.
+        </p>
 
         <div className="flex items-start gap-2 bg-primary-light text-primary text-xs rounded-md px-3 py-2 mt-4">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            Review difficulty sets the target the scheduler should aim for. It doesn&rsquo;t change today&rsquo;s
-            review intervals yet — those are still fixed placeholders until the real FSRS scheduler is built.
+            Review difficulty sets the retention target the FSRS scheduler aims for — changing it reshapes the
+            next interval shown on your very next review.
           </span>
         </div>
       </Card>
 
       {/* Notifications */}
       <Card title="Notifications">
+        {pushError && (
+          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
+            {pushError}
+          </p>
+        )}
         <div className="divide-y divide-neutral-100">
           <Toggle
             id="push"
             label="Push notifications"
             description="Reminders on your phone and desktop."
             checked={notifications.push}
-            onChange={(v) => setN('push', v)}
+            onChange={handlePushToggle}
           />
           <Toggle
             id="email"
@@ -259,7 +300,7 @@ export default function Settings() {
                 className={[
                   'flex-1 capitalize rounded-md border px-3 py-2 text-sm font-medium transition-colors',
                   'focus-visible:outline-2 focus-visible:outline-primary',
-                  appearance.theme === opt
+                  theme === opt
                     ? 'border-primary bg-primary-light text-primary'
                     : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50',
                 ].join(' ')}
@@ -268,15 +309,7 @@ export default function Settings() {
               </button>
             ))}
           </div>
-          {appearance.theme !== 'light' && (
-            <div className="flex items-start gap-2 bg-accent-light text-accent text-xs rounded-md px-3 py-2 mt-3">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                Your preference is saved, but dark styling isn&rsquo;t built yet — the app will still render in
-                light mode until that pass is done.
-              </span>
-            </div>
-          )}
+
         </div>
 
         <div className="border-t border-neutral-100 mt-4 pt-4">

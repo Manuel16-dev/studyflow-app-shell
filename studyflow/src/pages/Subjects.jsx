@@ -29,7 +29,7 @@ function SubjectCard({ subject, cardCount, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(subject.id)}
-      className="text-left bg-white border border-neutral-200 rounded-lg p-4 hover:border-neutral-300 hover:shadow-sm transition-all"
+      className="text-left bg-surface border border-neutral-200 rounded-lg p-4 hover:border-neutral-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between mb-3">
         <span className={`flex items-center justify-center w-9 h-9 rounded-md text-white ${color.bg}`}>
@@ -112,7 +112,7 @@ export default function Subjects() {
                 'px-3 py-2 rounded-md text-sm font-medium border transition-colors whitespace-nowrap',
                 activeFilter === f.id
                   ? 'bg-primary-light text-primary border-primary'
-                  : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50',
+                  : 'bg-surface text-neutral-700 border-neutral-300 hover:bg-neutral-50',
               ].join(' ')}
             >
               {f.label}
@@ -122,7 +122,7 @@ export default function Subjects() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-dashed border-neutral-300 rounded-lg p-10 text-center text-neutral-500">
+        <div className="bg-surface border border-dashed border-neutral-300 rounded-lg p-10 text-center text-neutral-500">
           No subjects match your search.
         </div>
       ) : (

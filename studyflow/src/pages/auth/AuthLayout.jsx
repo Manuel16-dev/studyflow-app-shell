@@ -11,7 +11,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           <span className="font-semibold text-lg text-neutral-900">StudyFlow</span>
         </div>
 
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
+        <div className="bg-surface border border-neutral-200 rounded-lg p-6">
           <h1 className="text-xl font-semibold text-neutral-900">{title}</h1>
           {subtitle && <p className="text-sm text-neutral-500 mt-1 mb-6">{subtitle}</p>}
           {!subtitle && <div className="mb-6" />}

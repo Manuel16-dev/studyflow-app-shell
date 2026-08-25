@@ -107,7 +107,7 @@ export default function SubjectDetail() {
       </div>
 
       {cards.length === 0 ? (
-        <div className="bg-white border border-dashed border-neutral-300 rounded-lg p-10 text-center flex flex-col items-center gap-4">
+        <div className="bg-surface border border-dashed border-neutral-300 rounded-lg p-10 text-center flex flex-col items-center gap-4">
           <p className="text-neutral-500">This subject has no cards yet.</p>
           <div className="flex gap-2">
             <Button variant="primary" onClick={openAddForm}>

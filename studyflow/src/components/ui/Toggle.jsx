@@ -22,7 +22,7 @@ export default function Toggle({ id, label, description, checked, onChange, disa
       >
         <span
           className={[
-            'inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform',
+            'inline-block h-4.5 w-4.5 transform rounded-full bg-surface shadow transition-transform',
             checked ? 'translate-x-6' : 'translate-x-1',
           ].join(' ')}
         />

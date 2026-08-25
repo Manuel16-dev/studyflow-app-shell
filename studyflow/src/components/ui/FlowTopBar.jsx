@@ -2,7 +2,7 @@ import { ChevronLeft, X } from 'lucide-react'
 
 export default function FlowTopBar({ title, onBack, onClose }) {
   return (
-    <header className="flex items-center h-14 px-3 border-b border-neutral-200 bg-white sticky top-0">
+    <header className="flex items-center h-14 px-3 border-b border-neutral-200 bg-surface sticky top-0">
       <div className="w-9">
         {onBack && (
           <button

@@ -1,21 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, List, Sparkles, Clock, GraduationCap } from 'lucide-react'
+import { CalendarDays, List, Sparkles, Clock, GraduationCap, Plus } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { mockPlanBlocks, weekdayLabel } from '../data/mockPlan'
-import { mockExams } from '../data/mockExams'
 import { getSubjects } from '../lib/subjectsStore'
+import { getExams } from '../lib/examsStore'
 
 const DAY_OFFSETS = [0, 1, 2, 3, 4]
 
 // Exam deadlines that fall inside this 5-day window, mapped to the matching
-// column. Reuses mockExams (Exams screen data) rather than a parallel
-// dataset, so a deadline shown here always matches what /exams says.
-function deadlinesByOffset() {
+// column. Reads the real exams table (examsStore.getExams) so a deadline
+// shown here always matches what /exams says — replaces the old mockExams
+// version now that the exams backend is real.
+function deadlinesByOffset(exams) {
   const map = {}
-  mockExams.forEach((exam) => {
+  exams.forEach((exam) => {
     if (exam.daysLeft >= 0 && exam.daysLeft <= 4) {
       map[exam.daysLeft] = [...(map[exam.daysLeft] ?? []), exam]
     }
@@ -25,12 +26,31 @@ function deadlinesByOffset() {
 
 export default function Planner() {
   const navigate = useNavigate()
-  const [blocks, setBlocks] = useState(mockPlanBlocks)
+  // null = still checking; the mock week data only ever renders for an
+  // account that has actually created a subject. A fresh signup has no real
+  // plan-block backend yet, so it gets an honest empty state instead of
+  // someone else's Calc/Bio schedule. Swap this check for a real plan-blocks
+  // fetch once that backend exists — the empty-state branch below doesn't
+  // change either way.
+  const [hasStarted, setHasStarted] = useState(null)
+  const [blocks, setBlocks] = useState([])
+  const [deadlines, setDeadlines] = useState({})
   const [mobileView, setMobileView] = useState('week') // week | agenda
   const [editingBlock, setEditingBlock] = useState(null)
   const [rebalanceMsg, setRebalanceMsg] = useState('')
 
-  const deadlines = useMemo(deadlinesByOffset, [])
+  useEffect(() => {
+    getSubjects().then((subjects) => {
+      const started = subjects.length > 0
+      setHasStarted(started)
+      setBlocks(started ? mockPlanBlocks : [])
+      if (started) {
+        getExams().then((exams) => setDeadlines(deadlinesByOffset(exams)))
+      } else {
+        setDeadlines({})
+      }
+    })
+  }, [])
 
   function blocksFor(offset) {
     return blocks.filter((b) => b.dayOffset === offset).sort((a, b) => a.time.localeCompare(b.time))
@@ -84,24 +104,40 @@ export default function Planner() {
           <h1 className="text-xl md:text-2xl font-semibold text-neutral-900">Study Plan</h1>
           <p className="text-sm text-neutral-500 mt-0.5">Priorities turned into a schedule &mdash; tap any block to reschedule it.</p>
         </div>
-        <Button variant="secondary" onClick={handleRebalance}>
-          <Sparkles className="w-4 h-4" />
-          Rebalance workload
-        </Button>
+        {hasStarted && (
+          <Button variant="secondary" onClick={handleRebalance}>
+            <Sparkles className="w-4 h-4" />
+            Rebalance workload
+          </Button>
+        )}
       </div>
 
       {rebalanceMsg && (
         <div className="bg-secondary-light text-secondary text-sm rounded-md px-4 py-2.5">{rebalanceMsg}</div>
       )}
 
+      {hasStarted === false && (
+        <Card className="text-center py-10">
+          <CalendarDays className="w-8 h-8 text-neutral-300 mx-auto mb-3" />
+          <p className="text-sm font-medium text-neutral-900">No study plan yet</p>
+          <p className="text-sm text-neutral-500 mt-1 mb-4">Add a subject to start building your schedule.</p>
+          <Button variant="primary" onClick={() => navigate('/subjects')}>
+            <Plus className="w-4 h-4" />
+            Add a subject
+          </Button>
+        </Card>
+      )}
+
       {/* Mobile agenda/week toggle — spec 4.6: "switch naturally between
           agenda and calendar views" on mobile. */}
+      {hasStarted && (
+      <>
       <div className="flex md:hidden gap-2">
         <button
           type="button"
           onClick={() => setMobileView('week')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium border ${
-            mobileView === 'week' ? 'bg-primary-light text-primary border-primary' : 'bg-white text-neutral-700 border-neutral-300'
+            mobileView === 'week' ? 'bg-primary-light text-primary border-primary' : 'bg-surface text-neutral-700 border-neutral-300'
           }`}
         >
           <CalendarDays className="w-4 h-4" />
@@ -111,7 +147,7 @@ export default function Planner() {
           type="button"
           onClick={() => setMobileView('agenda')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium border ${
-            mobileView === 'agenda' ? 'bg-primary-light text-primary border-primary' : 'bg-white text-neutral-700 border-neutral-300'
+            mobileView === 'agenda' ? 'bg-primary-light text-primary border-primary' : 'bg-surface text-neutral-700 border-neutral-300'
           }`}
         >
           <List className="w-4 h-4" />
@@ -177,6 +213,8 @@ export default function Planner() {
             )
           })}
         </div>
+      )}
+      </>
       )}
 
       <Modal open={!!editingBlock} onClose={() => setEditingBlock(null)} title="Reschedule">

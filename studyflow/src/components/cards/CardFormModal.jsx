@@ -7,33 +7,70 @@ const MAX_LEN = 500
 // Shared create/edit form per spec section 12 item 6 (Card creation/editing).
 // Front/back are the two fields per the spec's flashcard model — no extra
 // fields invented since neither spec mentions tags/difficulty at creation time.
-export default function CardFormModal({ open, onClose, onSave, initialCard }) {
+// `subjects` is optional: pass it (global Flashcards screen) to show a
+// subject picker so a card can be filed correctly with no subject context
+// already in the URL. Per-subject callers (SubjectDetail, GenerateCards)
+// omit it and get the original two-field form, unchanged.
+export default function CardFormModal({ open, onClose, onSave, initialCard, subjects, initialSubjectId }) {
   const isEdit = !!initialCard
   const [front, setFront] = useState('')
   const [back, setBack] = useState('')
+  const [subjectId, setSubjectId] = useState('')
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (!open) return
     setFront(initialCard?.front ?? '')
     setBack(initialCard?.back ?? '')
+    setSubjectId(initialCard?.subjectId ?? initialSubjectId ?? '')
     setErrors({})
-  }, [open, initialCard])
+  }, [open, initialCard, initialSubjectId])
 
   function handleSave() {
     const nextErrors = {}
+    if (subjects && !isEdit && !subjectId) nextErrors.subject = 'Choose a subject.'
     if (!front.trim()) nextErrors.front = 'Question is required.'
     if (!back.trim()) nextErrors.back = 'Answer is required.'
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors)
       return
     }
-    onSave({ front: front.trim(), back: back.trim() })
+    onSave({ front: front.trim(), back: back.trim(), subjectId: subjectId || undefined })
   }
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit card' : 'Add card'}>
       <div className="flex flex-col gap-4">
+        {subjects && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="card-subject" className="text-sm font-medium text-neutral-700">
+              Subject
+            </label>
+            <select
+              id="card-subject"
+              value={subjectId}
+              disabled={isEdit}
+              onChange={(e) => setSubjectId(e.target.value)}
+              aria-invalid={!!errors.subject}
+              className={[
+                'w-full rounded-md border px-3 py-2.5 text-sm text-neutral-900 disabled:bg-neutral-50 disabled:text-neutral-500',
+                'focus-visible:outline-2 focus-visible:outline-primary',
+                errors.subject ? 'border-danger' : 'border-neutral-300',
+              ].join(' ')}
+            >
+              <option value="" disabled>
+                Select a subject
+              </option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            {errors.subject && <p className="text-sm text-danger">{errors.subject}</p>}
+          </div>
+        )}
+
         <div className="flex flex-col gap-1.5">
           <label htmlFor="card-front" className="text-sm font-medium text-neutral-700">
             Question

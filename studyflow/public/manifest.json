@@ -1,0 +1,17 @@
+{
+  "name": "StudyFlow",
+  "short_name": "StudyFlow",
+  "description": "Personalized study and spaced-repetition memory management.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFB",
+  "theme_color": "#5366DC",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

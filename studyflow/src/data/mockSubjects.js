@@ -6,7 +6,7 @@ export const subjectColors = [
   { name: 'blue', bg: 'bg-primary', light: 'bg-primary-light' },
   { name: 'green', bg: 'bg-secondary', light: 'bg-secondary-light' },
   { name: 'orange', bg: 'bg-accent', light: 'bg-accent-light' },
-  { name: 'purple', bg: 'bg-violet-500', light: 'bg-violet-100' },
+  { name: 'purple', bg: 'bg-violet', light: 'bg-violet-light' },
 ]
 
 export const mockSubjects = [

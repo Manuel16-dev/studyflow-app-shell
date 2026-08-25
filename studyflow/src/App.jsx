@@ -16,6 +16,8 @@ import Exams from './pages/Exams'
 import ExamDetail from './pages/ExamDetail'
 import Planner from './pages/Planner'
 import Settings from './pages/Settings'
+import Flashcards from './pages/Flashcards'
+import ThemeSwitcher from './components/ui/ThemeSwitcher'
 
 // Placeholder copy per screen — real screens replace these one by one,
 // following the spec's build order (section 12): shell/nav done, auth next.
@@ -23,7 +25,6 @@ const pages = {
   dashboard: { title: 'Dashboard', description: 'What should I study now? Reviews due, streak, weak areas, and today\u2019s plan.' },
   review: { title: 'Review', description: 'Distraction-free flashcard review — the core learning loop.' },
   subjects: { title: 'Subjects', description: 'Your courses and topics, with mastery progress.' },
-  flashcards: { title: 'Flashcards', description: 'Browse and manage cards across all subjects.' },
   practice: { title: 'Practice', description: 'Targeted practice outside the scheduled review queue.' },
   tutor: { title: 'AI Tutor', description: 'Contextual explanations and Socratic questioning.' },
   exams: { title: 'Exams', description: 'Readiness by topic, days remaining, and prep recommendations.' },
@@ -37,6 +38,7 @@ const pages = {
 export default function App() {
   return (
     <AuthProvider>
+      <ThemeSwitcher />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
@@ -50,7 +52,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/subjects" element={<Subjects />} />
             <Route path="/subjects/:id" element={<SubjectDetail />} />
-            <Route path="/flashcards" element={<PlaceholderPage {...pages.flashcards} />} />
+            <Route path="/flashcards" element={<Flashcards />} />
             <Route path="/practice" element={<PlaceholderPage {...pages.practice} />} />
             <Route path="/tutor" element={<PlaceholderPage {...pages.tutor} />} />
             <Route path="/exams" element={<Exams />} />

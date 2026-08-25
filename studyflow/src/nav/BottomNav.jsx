@@ -1,14 +1,16 @@
 import { NavLink } from 'react-router-dom'
 import { mobileBottomNav } from './navConfig'
 
-export default function BottomNav() {
+export default function BottomNav({ reviewDueCount }) {
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-neutral-200 pb-[env(safe-area-inset-bottom)]"
+      className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface border-t border-neutral-200 pb-[env(safe-area-inset-bottom)]"
       aria-label="Main navigation"
     >
       <ul className="flex items-stretch justify-between">
-        {mobileBottomNav.map(({ to, label, icon: Icon, dueCount }) => (
+        {mobileBottomNav.map(({ to, label, icon: Icon }) => {
+          const dueCount = to === '/review' ? reviewDueCount : null
+          return (
           <li key={to} className="flex-1">
             <NavLink
               to={to}
@@ -34,7 +36,8 @@ export default function BottomNav() {
               {label}
             </NavLink>
           </li>
-        ))}
+          )
+        })}
       </ul>
     </nav>
   )

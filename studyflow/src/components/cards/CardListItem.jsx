@@ -1,9 +1,12 @@
 import { Pencil, Trash2 } from 'lucide-react'
 
-export default function CardListItem({ card, onEdit, onDelete }) {
+export default function CardListItem({ card, onEdit, onDelete, subjectLabel }) {
   return (
-    <div className="flex items-start justify-between gap-4 bg-white border border-neutral-200 rounded-lg p-4">
+    <div className="flex items-start justify-between gap-4 bg-surface border border-neutral-200 rounded-lg p-4">
       <div className="min-w-0 flex-1">
+        {subjectLabel && (
+          <p className="text-xs font-medium text-primary mb-1 truncate">{subjectLabel}</p>
+        )}
         <p className="text-sm font-medium text-neutral-900 truncate">{card.front}</p>
         <p className="text-sm text-neutral-500 mt-1 line-clamp-2">{card.back}</p>
       </div>

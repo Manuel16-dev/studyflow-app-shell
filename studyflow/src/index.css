@@ -15,6 +15,16 @@
   --color-danger: #E54239;
   --color-danger-light: #FCEAE9;
 
+  /* Two extra semantic slots, same pattern as primary/secondary/accent/danger
+     above — added to fix two spots that were using raw un-themed Tailwind
+     literals (blue-*, violet-*) instead of a token, which meant they didn't
+     adapt in dark mode. */
+  --color-info: #3B82F6;
+  --color-info-light: #EFF6FF;
+
+  --color-violet: #8B5CF6;
+  --color-violet-light: #F3EEFE;
+
   --color-neutral-900: #14171F;
   --color-neutral-700: #3E495D;
   --color-neutral-500: #6B7280;
@@ -22,6 +32,12 @@
   --color-neutral-200: #E5E7EB;
   --color-neutral-100: #F3F4F6;
   --color-neutral-50: #FAFAFB;
+
+  /* Raised surface (cards, modals, nav bars) — distinct from neutral-50
+     (page bg) so dark mode can tell them apart. Equals white in light
+     mode, so this is a drop-in rename of bg-white, not a visual change
+     until dark mode is on. */
+  --color-surface: #FFFFFF;
 
   /* Typography — Inter, spec's Heading 1/2/3 + Body Large/Body/Caption scale */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -32,13 +48,68 @@
   --radius-lg: 16px;
 }
 
+/* Dark mode — same token names, remapped values, applied via the
+   `dark` class on <html> (see applyThemeClass in settingsStore.js).
+   Anything built with the semantic color utilities above (bg-neutral-50,
+   text-neutral-900, border-neutral-300, bg-primary-light, etc.) picks
+   this up automatically. Two surface tiers (page vs. card) since dark UIs
+   need visible separation that light mode gets for free from shadows. */
+html.dark {
+  --color-primary: #6B74E0;
+  --color-primary-dark: #8F97F5;
+  --color-primary-light: #262A4A;
+
+  --color-secondary: #34C99E;
+  --color-secondary-light: #16332B;
+
+  --color-accent: #F5A73D;
+  --color-accent-light: #3D2E14;
+
+  --color-danger: #F0645C;
+  --color-danger-light: #3D1F1D;
+
+  --color-info: #6BA0F5;
+  --color-info-light: #182D4D;
+
+  --color-violet: #A78BFA;
+  --color-violet-light: #2E2650;
+
+  /* neutral-900 stays the "most contrast from background" role, so it
+     flips to near-white; neutral-50 stays "page background," so it
+     flips to near-black. Everything in between inverts along the ramp. */
+  --color-neutral-900: #F3F4F6;
+  --color-neutral-700: #B4B8C4;
+  --color-neutral-500: #9199A8;
+  --color-neutral-300: #3E495D;
+  --color-neutral-200: #2E333F;
+  --color-neutral-100: #1D212B;
+  --color-neutral-50: #14171F;
+
+  --color-surface: #1D212B;
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);
+    /* Always reserve scrollbar space rather than only when a scrollbar
+       actually appears. Without this, the moment page content grows tall
+       enough to need a scrollbar, the browser steals that width from
+       percentage-sized elements (like the Dashboard content div) but not
+       from position: sticky elements (like TopBar) in some browsers —
+       which is exactly the "header touches the edge, cards don't" gap
+       reported on Dashboard. Reserving it up front keeps both computed
+       against the same width always. */
+    scrollbar-gutter: stable;
   }
   body {
     background-color: var(--color-neutral-50);
     color: var(--color-neutral-900);
+    transition: background-color 0.15s ease, color 0.15s ease;
+    /* Safety net: nothing in the app should ever need to scroll
+       horizontally, so if anything overflows by a pixel or two, hide it
+       instead of letting it silently shift every element's available
+       width and reintroduce this class of misalignment. */
+    overflow-x: hidden;
   }
   /* Visible keyboard focus state everywhere — accessibility requirement, section 9 */
   :focus-visible {
@@ -59,5 +130,14 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  /* Settings > Appearance > Text size. Scales the root font-size so every
+     Tailwind text-* utility (all rem-based) scales with it app-wide —
+     medium is the unscaled default and needs no class. */
+  html.text-size-small {
+    font-size: 87.5%;
+  }
+  html.text-size-large {
+    font-size: 112.5%;
   }
 }

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { X, Flame, BookOpen } from 'lucide-react'
 import { primaryNav } from './navConfig'
 
-export default function MobileMenu({ open, onClose }) {
+export default function MobileMenu({ open, onClose, reviewDueCount, streakDays }) {
   if (!open) return null
 
   return (
@@ -15,7 +15,7 @@ export default function MobileMenu({ open, onClose }) {
         className="absolute inset-0 bg-black/40"
       />
 
-      <div className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-white shadow-xl flex flex-col animate-in slide-in-from-left">
+      <div className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-surface shadow-xl flex flex-col animate-in slide-in-from-left">
         <div className="flex items-center justify-between h-16 px-5 shrink-0 border-b border-neutral-200">
           <div className="flex items-center gap-2">
             <span className="flex items-center justify-center w-7 h-7 rounded-md bg-primary text-white">
@@ -34,7 +34,9 @@ export default function MobileMenu({ open, onClose }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5" aria-label="Full navigation">
-          {primaryNav.map(({ to, label, icon: Icon, dueCount }) => (
+          {primaryNav.map(({ to, label, icon: Icon }) => {
+            const dueCount = to === '/review' ? reviewDueCount : null
+            return (
             <NavLink
               key={to}
               to={to}
@@ -60,13 +62,14 @@ export default function MobileMenu({ open, onClose }) {
                 </span>
               )}
             </NavLink>
-          ))}
+            )
+          })}
         </nav>
 
         <div className="px-5 py-4 border-t border-neutral-200">
           <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
             <Flame className="w-4 h-4 text-accent" />
-            <span>12 day streak</span>
+            <span>{streakDays ?? '—'} day streak</span>
           </div>
         </div>
       </div>

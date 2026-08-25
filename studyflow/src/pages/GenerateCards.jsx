@@ -177,13 +177,13 @@ export default function GenerateCards() {
             </div>
 
             {candidates.length === 0 ? (
-              <div className="bg-white border border-dashed border-neutral-300 rounded-lg p-10 text-center text-neutral-500">
+              <div className="bg-surface border border-dashed border-neutral-300 rounded-lg p-10 text-center text-neutral-500">
                 All candidates discarded. Go back and generate again if you'd like another pass.
               </div>
             ) : (
               <div className="flex flex-col gap-2 mb-6">
                 {candidates.map((card) => (
-                  <div key={card.id} className="bg-white border border-neutral-200 rounded-lg p-4">
+                  <div key={card.id} className="bg-surface border border-neutral-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"

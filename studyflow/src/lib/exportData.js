@@ -3,16 +3,21 @@ import { supabase } from './supabaseClient'
 // Every query here is RLS-scoped to auth.uid() automatically — no explicit
 // user_id filter needed, same pattern as the rest of the stores.
 export async function exportMyData() {
-  const [profile, settings, subjects, cards, reviews, reviewLogs] = await Promise.all([
-    supabase.from('profiles').select('*').maybeSingle(),
-    supabase.from('settings').select('*').maybeSingle(),
-    supabase.from('subjects').select('*'),
-    supabase.from('cards').select('*'),
-    supabase.from('reviews').select('*'),
-    supabase.from('review_logs').select('*'),
-  ])
+  const [profile, settings, subjects, cards, reviews, reviewLogs, studySessions, pushSubscriptions] =
+    await Promise.all([
+      supabase.from('profiles').select('*').maybeSingle(),
+      supabase.from('settings').select('*').maybeSingle(),
+      supabase.from('subjects').select('*'),
+      supabase.from('cards').select('*'),
+      supabase.from('reviews').select('*'),
+      supabase.from('review_logs').select('*'),
+      supabase.from('study_sessions').select('*'),
+      supabase.from('push_subscriptions').select('*'),
+    ])
 
-  const firstError = [profile, settings, subjects, cards, reviews, reviewLogs].find((r) => r.error)?.error
+  const firstError = [profile, settings, subjects, cards, reviews, reviewLogs, studySessions, pushSubscriptions].find(
+    (r) => r.error
+  )?.error
   if (firstError) throw firstError
 
   const payload = {
@@ -23,6 +28,8 @@ export async function exportMyData() {
     cards: cards.data,
     reviews: reviews.data,
     review_logs: reviewLogs.data,
+    study_sessions: studySessions.data,
+    push_subscriptions: pushSubscriptions.data,
   }
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })

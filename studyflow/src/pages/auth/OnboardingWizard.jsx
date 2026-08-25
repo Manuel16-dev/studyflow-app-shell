@@ -62,7 +62,7 @@ export default function OnboardingWizard() {
                     'px-4 py-2 rounded-full text-sm font-medium border transition-colors',
                     studyFor === option
                       ? 'bg-primary-light text-primary border-primary'
-                      : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50',
+                      : 'bg-surface text-neutral-700 border-neutral-300 hover:bg-neutral-50',
                   ].join(' ')}
                 >
                   {option}

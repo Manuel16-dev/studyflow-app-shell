@@ -14,10 +14,13 @@ import {
 } from 'lucide-react'
 
 // Full destination list — desktop sidebar and mobile slide-out menu both use this.
-// dueCount on Review is wired up later to the review queue; 0 hides the badge.
+// dueCount on Review is intentionally absent here — it's live data (real
+// due-card count from reviewQueue.getDueCount), not something that belongs
+// in a static config. AppShell fetches it once and passes it down as a
+// prop that overrides per-item at render time. See Sidebar/BottomNav/MobileMenu.
 export const primaryNav = [
   { to: '/', label: 'Dashboard', icon: Home },
-  { to: '/review', label: 'Review', icon: RotateCw, dueCount: 27 },
+  { to: '/review', label: 'Review', icon: RotateCw },
   { to: '/subjects', label: 'Subjects', icon: BookOpen },
   { to: '/flashcards', label: 'Flashcards', icon: Layers },
   { to: '/practice', label: 'Practice', icon: Target },
@@ -32,7 +35,7 @@ export const primaryNav = [
 // Mobile bottom nav — most-frequent-only, per spec section 9 / mockup page 4.
 export const mobileBottomNav = [
   { to: '/', label: 'Home', icon: Home },
-  { to: '/review', label: 'Review', icon: RotateCw, dueCount: 27 },
+  { to: '/review', label: 'Review', icon: RotateCw },
   { to: '/subjects', label: 'Subjects', icon: BookOpen },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/profile', label: 'Profile', icon: User },

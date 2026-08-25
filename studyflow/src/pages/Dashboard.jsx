@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Bell, CheckCircle2, FilePlus2, ClipboardCheck, Clock3, Flame } from 'lucide-react'
+import { Plus, CheckCircle2, FilePlus2, ClipboardCheck, Clock3, Flame } from 'lucide-react'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import ProgressRing from '../components/ui/ProgressRing'
 import Card from '../components/ui/Card'
 import { useAuth } from '../lib/AuthContext'
-import { mockKpis, mockContinueReview, mockNeedsAttention, mockRecentActivity } from '../data/mockDashboard'
-import { mockExams } from '../data/mockExams'
-import { mockPlanBlocks } from '../data/mockPlan'
 import { getDueCount, getNewCardCount } from '../lib/reviewQueue'
+import { getStudyTimeTodayMinutes, getStreakDays } from '../lib/studySessionsStore'
+import { getSettings } from '../lib/settingsStore'
+import { getWeakSubjects } from '../lib/subjectsStore'
+import { getExams } from '../lib/examsStore'
+import { getEstimatedReviewMinutes, getRecentActivity } from '../lib/activityStore'
+import { mockPlanBlocks } from '../data/mockPlan'
 
 const activityIcons = {
   review: CheckCircle2,
@@ -20,11 +23,19 @@ const activityIcons = {
 
 const severityLabel = { weak: 'Weak', attention: 'Attention', mastered: 'Strong' }
 
+function severityOf(mastery) {
+  if (mastery < 55) return 'weak'
+  if (mastery < 75) return 'attention'
+  return 'mastered'
+}
+
 function greeting() {
   const h = new Date().getHours()
+  if (h < 5) return 'Good night'
   if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+  if (h < 17) return 'Good afternoon'
+  if (h < 22) return 'Good evening'
+  return 'Good night'
 }
 
 // "4:30 PM" -> minutes since midnight, for sorting today's plan blocks.
@@ -35,10 +46,16 @@ function parseTimeToMinutes(time) {
   return hours * 60 + Number(m)
 }
 
+// Total minutes -> "1h 24m" / "24m", for Study Time display.
+function formatMinutes(totalMinutes) {
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [notifOpen, setNotifOpen] = useState(false)
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'there'
 
   // Real counts from the live subjects/cards/review stores — replaces the
@@ -46,18 +63,56 @@ export default function Dashboard() {
   const [reviewsDue, setReviewsDue] = useState(null)
   const [newCards, setNewCards] = useState(null)
 
+  // Real study time/streak (study_sessions table) and daily goal (settings.
+  // studyBehavior.dailyTargetMinutes, already a real, user-set field) —
+  // replaces mockKpis.studyTimeToday/streakDays and the previously-frozen
+  // reviewsDueProgress/dailyGoalPercent, which were always 72 regardless of
+  // actual progress.
+  const [studyMinutesToday, setStudyMinutesToday] = useState(null)
+  const [streakDays, setStreakDays] = useState(null)
+  const [dailyGoalMinutes, setDailyGoalMinutes] = useState(null)
+
+  // Real "Needs Attention" (subject-level FSRS mastery, subjectsStore.
+  // getWeakSubjects — already built, just wasn't wired here) and real
+  // "Upcoming Exams" (examsStore, backed by the new exams table). null =
+  // still loading.
+  const [weakSubjects, setWeakSubjects] = useState(null)
+  const [upcomingExams, setUpcomingExams] = useState(null)
+
+  // Real estimated review time (derived from historical study_sessions/
+  // review_logs, see activityStore) and Recent Activity (merged from
+  // review_logs + study_sessions + cards.created_at — no activity-log table
+  // exists, this builds an honest feed from data already being written).
+  // Both replace mockDashboard's last two frozen fields. null = still loading.
+  const [estimatedMinutes, setEstimatedMinutes] = useState(null)
+  const [recentActivity, setRecentActivity] = useState(null)
+
   useEffect(() => {
-    getDueCount().then(setReviewsDue)
+    getDueCount().then((count) => {
+      setReviewsDue(count)
+      getEstimatedReviewMinutes(count).then(setEstimatedMinutes)
+    })
     getNewCardCount().then(setNewCards)
+    getStudyTimeTodayMinutes().then(setStudyMinutesToday)
+    getStreakDays().then(setStreakDays)
+    getSettings().then((s) => setDailyGoalMinutes(s?.studyBehavior?.dailyTargetMinutes ?? null))
+    getWeakSubjects(3).then(setWeakSubjects)
+    getExams().then((exams) => setUpcomingExams(exams.slice(0, 3)))
+    getRecentActivity(4).then(setRecentActivity)
   }, [])
 
-  // Single source of truth: read straight from mockExams.js (same file
-  // Exams.jsx uses) instead of a separate, driftable mockUpcomingExams list.
-  const upcomingExams = [...mockExams].sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 3)
+  // % of today's study-time goal reached so far. null while any input is
+  // still loading, so the UI can show "—" instead of a misleading 0%.
+  const goalPercent =
+    studyMinutesToday == null || !dailyGoalMinutes
+      ? null
+      : Math.min(100, Math.round((studyMinutesToday / dailyGoalMinutes) * 100))
 
   // Today's plan, read from the same mockPlanBlocks Planner.jsx uses
   // (dayOffset 0), instead of a separate hardcoded list that could show
-  // blocks that aren't actually scheduled for today.
+  // blocks that aren't actually scheduled for today. Still mock — no
+  // study_plan_blocks table exists yet, unlike Needs Attention/Upcoming
+  // Exams above which are now real.
   const todaysPlan = mockPlanBlocks
     .filter((b) => b.dayOffset === 0)
     .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
@@ -68,32 +123,15 @@ export default function Dashboard() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-neutral-900">
-            {greeting()}, {displayName} 👋
+            {greeting()}, {displayName}
           </h1>
           <p className="text-sm text-neutral-500 mt-0.5">Let's make today count.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" className="hidden sm:inline-flex" onClick={() => navigate('/subjects')}>
+          <Button variant="secondary" onClick={() => navigate('/subjects')}>
             <Plus className="w-4 h-4" />
             Quick Add
           </Button>
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="Notifications"
-              onClick={() => setNotifOpen((v) => !v)}
-              className="p-2.5 rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
-            >
-              <Bell className="w-4 h-4" />
-            </button>
-            {notifOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-neutral-200 rounded-md shadow-lg p-3 z-10">
-                {/* No notifications backend yet (Phase 3) — this is an
-                    honest empty state, not a placeholder pretending to work. */}
-                <p className="text-sm text-neutral-500">No notifications yet.</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -105,7 +143,7 @@ export default function Dashboard() {
           <div className="h-1.5 rounded-full bg-neutral-100 mt-2 overflow-hidden">
             <div
               className="h-full bg-secondary rounded-full"
-              style={{ width: `${mockKpis.reviewsDueProgress}%` }}
+              style={{ width: `${goalPercent ?? 0}%` }}
             />
           </div>
         </Card>
@@ -116,13 +154,15 @@ export default function Dashboard() {
         </Card>
         <Card>
           <p className="text-xs text-neutral-500">Study Time</p>
-          <p className="text-2xl font-semibold text-neutral-900 mt-1">{mockKpis.studyTimeToday}</p>
+          <p className="text-2xl font-semibold text-neutral-900 mt-1">
+            {studyMinutesToday == null ? "—" : formatMinutes(studyMinutesToday)}
+          </p>
           <p className="text-xs text-neutral-400 mt-2">today</p>
         </Card>
         <Card>
           <p className="text-xs text-neutral-500">Streak</p>
           <p className="text-2xl font-semibold text-neutral-900 mt-1 flex items-center gap-1">
-            {mockKpis.streakDays}
+            {streakDays ?? "—"}
             <Flame className="w-4 h-4 text-accent" />
           </p>
           <p className="text-xs text-neutral-400 mt-2">days</p>
@@ -134,13 +174,13 @@ export default function Dashboard() {
         <Card title="Continue Review">
           <p className="text-sm text-neutral-500 mb-4">You have {reviewsDue ?? "—"} cards due</p>
           <div className="flex items-center gap-4">
-            <ProgressRing value={mockContinueReview.dailyGoalPercent} label="Daily Goal" />
+            <ProgressRing value={goalPercent ?? 0} label="Daily Goal" />
             <div className="flex-1">
               <Button variant="primary" className="w-full" onClick={() => navigate('/review')}>
                 Start Review
               </Button>
               <p className="text-xs text-neutral-400 mt-2">
-                Estimated time: {mockContinueReview.estimatedMinutes} min
+                Estimated time: {estimatedMinutes == null ? "—" : `${estimatedMinutes} min`}
               </p>
             </div>
           </div>
@@ -159,15 +199,18 @@ export default function Dashboard() {
           }
         >
           <ul className="flex flex-col gap-3">
-            {mockNeedsAttention.map((item) => (
-              <li key={item.topic} className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-900 truncate">{item.topic}</p>
-                  <p className="text-xs text-neutral-400 truncate">{item.subject}</p>
-                </div>
-                <Badge variant={item.severity}>{severityLabel[item.severity]}</Badge>
-              </li>
-            ))}
+            {weakSubjects == null ? (
+              <li className="text-sm text-neutral-400">Loading…</li>
+            ) : weakSubjects.length === 0 ? (
+              <li className="text-sm text-neutral-400">Nothing needs attention yet.</li>
+            ) : (
+              weakSubjects.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-neutral-900 truncate">{s.name}</p>
+                  <Badge variant={severityOf(s.mastery)}>{severityLabel[severityOf(s.mastery)]}</Badge>
+                </li>
+              ))
+            )}
           </ul>
         </Card>
 
@@ -184,15 +227,21 @@ export default function Dashboard() {
           }
         >
           <ul className="flex flex-col gap-3">
-            {upcomingExams.map((exam) => (
-              <li key={exam.name} className="flex items-center gap-3">
-                <span className="w-1 self-stretch rounded-full bg-primary shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-neutral-900 truncate">{exam.name}</p>
-                </div>
-                <p className="text-xs text-neutral-400 shrink-0">{exam.daysLeft} days left</p>
-              </li>
-            ))}
+            {upcomingExams == null ? (
+              <li className="text-sm text-neutral-400">Loading…</li>
+            ) : upcomingExams.length === 0 ? (
+              <li className="text-sm text-neutral-400">No upcoming exams.</li>
+            ) : (
+              upcomingExams.map((exam) => (
+                <li key={exam.id} className="flex items-center gap-3">
+                  <span className="w-1 self-stretch rounded-full bg-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-neutral-900 truncate">{exam.name}</p>
+                  </div>
+                  <p className="text-xs text-neutral-400 shrink-0">{exam.daysLeft} days left</p>
+                </li>
+              ))
+            )}
           </ul>
         </Card>
       </div>
@@ -235,18 +284,24 @@ export default function Dashboard() {
           }
         >
           <ul className="flex flex-col gap-3">
-            {mockRecentActivity.map((item) => {
-              const Icon = activityIcons[item.kind]
-              return (
-                <li key={item.text} className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary shrink-0">
-                    <Icon className="w-3.5 h-3.5" />
-                  </span>
-                  <span className="text-sm text-neutral-900 flex-1 truncate">{item.text}</span>
-                  <span className="text-xs text-neutral-400 shrink-0">{item.time}</span>
-                </li>
-              )
-            })}
+            {recentActivity == null ? (
+              <li className="text-sm text-neutral-400">Loading…</li>
+            ) : recentActivity.length === 0 ? (
+              <li className="text-sm text-neutral-400">No activity yet — start a review to get going.</li>
+            ) : (
+              recentActivity.map((item, i) => {
+                const Icon = activityIcons[item.kind]
+                return (
+                  <li key={i} className="flex items-center gap-3">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary shrink-0">
+                      <Icon className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-sm text-neutral-900 flex-1 truncate">{item.text}</span>
+                    <span className="text-xs text-neutral-400 shrink-0">{item.time}</span>
+                  </li>
+                )
+              })
+            )}
           </ul>
         </Card>
       </div>

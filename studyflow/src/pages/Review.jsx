@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, RotateCcw, TrendingDown, Check, Zap, PartyPopper } from 'lucide-react'
 import Button from '../components/ui/Button'
@@ -6,12 +6,13 @@ import { Rating, schedule, previewIntervals, formatDue } from '../lib/fsrs'
 import { getCardState, saveCardState, logReview } from '../lib/reviewStore'
 import { getDueQueue } from '../lib/reviewQueue'
 import { getSettings } from '../lib/settingsStore'
+import { logStudySession } from '../lib/studySessionsStore'
 
 const ratings = [
   { id: 'again', rating: Rating.Again, label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger bg-danger-light hover:bg-danger hover:text-white' },
   { id: 'hard', rating: Rating.Hard, label: 'Hard', Icon: TrendingDown, classes: 'border-accent text-accent bg-accent-light hover:bg-accent hover:text-white' },
   { id: 'good', rating: Rating.Good, label: 'Good', Icon: Check, classes: 'border-secondary text-secondary bg-secondary-light hover:bg-secondary hover:text-white' },
-  { id: 'easy', rating: Rating.Easy, label: 'Easy', Icon: Zap, classes: 'border-blue-400 text-blue-500 bg-blue-50 hover:bg-blue-500 hover:text-white' },
+  { id: 'easy', rating: Rating.Easy, label: 'Easy', Icon: Zap, classes: 'border-info text-info bg-info-light hover:bg-info hover:text-white' },
 ]
 
 export default function Review() {
@@ -23,6 +24,20 @@ export default function Review() {
   const [currentState, setCurrentState] = useState(null)
   const [saving, setSaving] = useState(false)
   const [requestRetention, setRequestRetention] = useState(0.9) // default until settings load
+
+  // Wall-clock session tracking for the Dashboard's Study Time/Streak —
+  // logged on unmount (covers both a normal finish and closing early via
+  // the X button) and only if at least one card was actually rated, so
+  // opening Review and immediately leaving doesn't count as "studying".
+  const sessionStartRef = useRef(Date.now())
+  const ratedCountRef = useRef(0)
+  useEffect(() => {
+    return () => {
+      if (ratedCountRef.current > 0) {
+        logStudySession(sessionStartRef.current, (Date.now() - sessionStartRef.current) / 1000)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     getDueQueue().then(setQueue)
@@ -57,6 +72,7 @@ export default function Review() {
     setSaving(true)
     await Promise.all([saveCardState(current.id, nextState), logReview(current.id, rating, nextState)])
     setSaving(false)
+    ratedCountRef.current += 1
     setSessionStats((s) => ({ ...s, [ratingId]: s[ratingId] + 1 }))
     setRevealed(false)
     setCurrentState(null)
@@ -66,7 +82,7 @@ export default function Review() {
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Progress + close — full-screen flow, no persistent nav during recall (spec 4.3 / 7) */}
-      <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-white sticky top-0">
+      <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-surface sticky top-0">
         <span className="text-xs font-medium text-neutral-500 shrink-0 tabular-nums">
           {Math.min(index + 1, total)} / {total}
         </span>
@@ -118,7 +134,7 @@ export default function Review() {
         ) : (
           <div className="w-full max-w-md">
             <p className="text-xs font-medium text-primary text-center mb-2">{current.subject}</p>
-            <div className="bg-white border border-neutral-200 rounded-lg p-8 min-h-[280px] flex flex-col items-center justify-center text-center gap-4">
+            <div className="bg-surface border border-neutral-200 rounded-lg p-8 min-h-[280px] flex flex-col items-center justify-center text-center gap-4">
               <h1 className="text-lg md:text-xl font-semibold text-neutral-900">{current.question}</h1>
 
               {!revealed ? (

@@ -25,7 +25,7 @@ export default function Modal({ open, onClose, title, children }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative bg-white rounded-lg border border-neutral-200 w-full max-w-sm p-6"
+        className="relative bg-surface rounded-lg border border-neutral-200 w-full max-w-sm p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-neutral-900">{title}</h2>
