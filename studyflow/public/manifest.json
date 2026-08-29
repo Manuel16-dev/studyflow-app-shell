@@ -1,17 +1,61 @@
 {
+  "id": "/",
   "name": "StudyFlow",
   "short_name": "StudyFlow",
   "description": "Personalized study and spaced-repetition memory management.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#FAFAFB",
   "theme_color": "#5366DC",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Review",
+      "short_name": "Review",
+      "description": "Review the cards due today",
+      "url": "/review"
+    },
+    {
+      "name": "My Subjects",
+      "short_name": "Subjects",
+      "description": "Browse subjects and decks",
+      "url": "/subjects"
     }
   ]
 }

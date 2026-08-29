@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Sparkles } from 'lucide-react'
+import { ChevronLeft, Plus, Sparkles, Trash2 } from 'lucide-react'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import CardFormModal from '../components/cards/CardFormModal'
 import CardListItem from '../components/cards/CardListItem'
-import { getSubject } from '../lib/subjectsStore'
+import { getSubject, deleteSubject } from '../lib/subjectsStore'
 import { getCards, addCard, updateCard, deleteCard, nextCardId } from '../lib/cardsStore'
 import { resolveIcon } from '../lib/iconMap'
 
@@ -17,6 +17,8 @@ export default function SubjectDetail() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleteSubjectOpen, setDeleteSubjectOpen] = useState(false)
+  const [deletingSubject, setDeletingSubject] = useState(false)
 
   useEffect(() => {
     getSubject(id).then((s) => setSubject(s ?? null))
@@ -69,6 +71,17 @@ export default function SubjectDetail() {
     setPendingDelete(null)
   }
 
+  async function confirmDeleteSubject() {
+    setDeletingSubject(true)
+    try {
+      await deleteSubject(id)
+      navigate('/subjects')
+    } catch {
+      setDeletingSubject(false)
+      setDeleteSubjectOpen(false)
+    }
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto flex flex-col gap-4">
       <button
@@ -92,18 +105,28 @@ export default function SubjectDetail() {
             </p>
           </div>
         </div>
-        {cards.length > 0 && (
-          <div className="flex gap-2 shrink-0">
-            <Button variant="secondary" onClick={() => navigate(`/subjects/${id}/generate`)}>
-              <Sparkles className="w-4 h-4" />
-              Generate
-            </Button>
-            <Button variant="primary" onClick={openAddForm}>
-              <Plus className="w-4 h-4" />
-              Add card
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2 shrink-0">
+          {cards.length > 0 && (
+            <>
+              <Button variant="secondary" onClick={() => navigate(`/subjects/${id}/generate`)}>
+                <Sparkles className="w-4 h-4" />
+                Generate
+              </Button>
+              <Button variant="primary" onClick={openAddForm}>
+                <Plus className="w-4 h-4" />
+                Add card
+              </Button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setDeleteSubjectOpen(true)}
+            aria-label={`Delete subject: ${subject.name}`}
+            className="p-2.5 rounded-md text-neutral-400 hover:bg-danger-light hover:text-danger border border-neutral-200"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {cards.length === 0 ? (
@@ -154,6 +177,24 @@ export default function SubjectDetail() {
             </Button>
             <Button variant="danger" onClick={confirmDelete}>
               Delete card
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={deleteSubjectOpen} onClose={() => setDeleteSubjectOpen(false)} title={`Delete ${subject.name}?`}>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-neutral-600">
+            This permanently deletes <strong>{subject.name}</strong> along with all {cards.length} card
+            {cards.length === 1 ? '' : 's'}, its review history, any uploaded materials, and any exams linked to it.
+            This can&rsquo;t be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteSubjectOpen(false)} disabled={deletingSubject}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDeleteSubject} disabled={deletingSubject}>
+              {deletingSubject ? 'Deleting…' : 'Delete subject'}
             </Button>
           </div>
         </div>

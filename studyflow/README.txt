@@ -27,3 +27,29 @@ After copying everything in:
 
 Backend (tables, functions, the Edge Function itself, the cron schedule)
 is already live on your Supabase project — nothing else to run.
+
+=======================================================================
+AI CARD GENERATION — ONE-TIME SETUP (generate-cards Edge Function)
+=======================================================================
+
+The generate flow needs ONE new Edge Function deployed:
+
+1. In the Supabase dashboard -> Edge Functions -> Create a new function
+   named exactly: generate-cards
+
+2. Paste in the contents of:
+   supabase-edge-function-reference/generate-cards/index.js
+
+3. In that function's Secrets, add:
+   GEMINI_API_KEY          = ...           (required — free tier, no card needed)
+   ANTHROPIC_API_KEY       = sk-ant-...     (optional Claude fallback)
+   OPENAI_API_KEY          = sk-...         (optional second fallback)
+   GENERATION_MODEL_GEMINI = gemini-2.5-flash  (optional, this is the default)
+
+4. Deploy the function (dashboard saves + deploys automatically).
+
+How it works: the browser extracts text from the picked PDF/DOCX/TXT
+(PDF.js / mammoth, loaded lazily), sends only the TEXT to the function,
+which chunks it, generates schema-validated cards (Gemini primary,
+Claude then OpenAI as fallbacks), and returns candidates for the
+approve/edit flow. The file itself never leaves the device.
