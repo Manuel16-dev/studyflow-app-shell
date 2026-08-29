@@ -13,6 +13,7 @@ import { getWeakSubjects } from '../lib/subjectsStore'
 import { getExams } from '../lib/examsStore'
 import { getEstimatedReviewMinutes, getRecentActivity } from '../lib/activityStore'
 import { getTodaysPlanBlocks } from '../lib/planBlocksStore'
+import { getProfile } from '../lib/profileStore'
 
 const activityIcons = {
   review: CheckCircle2,
@@ -56,7 +57,15 @@ function formatMinutes(totalMinutes) {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'there'
+  // The editable name lives in `profiles.display_name` (set on the Profile
+  // page) — that's the source of truth for the greeting, not the auth
+  // signup-time metadata, which never changes after signup. Falls back to
+  // the metadata name, then the email prefix, same order Profile.jsx uses.
+  const [profileName, setProfileName] = useState(null)
+  useEffect(() => {
+    getProfile().then((p) => setProfileName(p?.display_name ?? null))
+  }, [])
+  const displayName = profileName || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'there'
 
   // Real counts from the live subjects/cards/review stores — replaces the
   // static reviewsDue/newCards mock values. null = still loading.
