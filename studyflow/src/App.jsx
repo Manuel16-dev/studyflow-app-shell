@@ -17,6 +17,7 @@ import ExamDetail from './pages/ExamDetail'
 import Planner from './pages/Planner'
 import Settings from './pages/Settings'
 import Flashcards from './pages/Flashcards'
+import Profile from './pages/Profile'
 import ThemeSwitcher from './components/ui/ThemeSwitcher'
 
 // Placeholder copy per screen — real screens replace these one by one,
@@ -61,7 +62,7 @@ export default function App() {
             <Route path="/progress" element={<Progress />} />
             <Route path="/library" element={<PlaceholderPage {...pages.library} />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<PlaceholderPage {...pages.profile} />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
         </Route>
       </Routes>

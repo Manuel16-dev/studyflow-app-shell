@@ -42,6 +42,19 @@ export async function getStudyTimeTodayMinutes() {
   return Math.round(totalSeconds / 60)
 }
 
+// All-time total, in minutes — the Profile page's lifetime stat, distinct
+// from getStudyTimeTodayMinutes() which only covers today.
+export async function getTotalStudyMinutes() {
+  const userId = await requireUserId()
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .select('duration_seconds')
+    .eq('user_id', userId)
+  if (error) throw error
+  const totalSeconds = data.reduce((sum, row) => sum + row.duration_seconds, 0)
+  return Math.round(totalSeconds / 60)
+}
+
 // Consecutive calendar days (ending today or yesterday) with at least one
 // logged session. Today not having a session yet doesn't break the streak
 // until the day actually passes — a missed *yesterday* does.
