@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, List, Sparkles, Clock, GraduationCap, Plus } from 'lucide-react'
+import { CalendarDays, List, Sparkles, Clock, GraduationCap, Plus, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import { mockPlanBlocks, weekdayLabel } from '../data/mockPlan'
+import TextField from '../components/ui/TextField'
+import {
+  getPlanBlocksForWeek,
+  createPlanBlock,
+  updatePlanBlock,
+  deletePlanBlock,
+  weekdayLabel,
+} from '../lib/planBlocksStore'
 import { getSubjects } from '../lib/subjectsStore'
 import { getExams } from '../lib/examsStore'
 
@@ -12,8 +19,7 @@ const DAY_OFFSETS = [0, 1, 2, 3, 4]
 
 // Exam deadlines that fall inside this 5-day window, mapped to the matching
 // column. Reads the real exams table (examsStore.getExams) so a deadline
-// shown here always matches what /exams says — replaces the old mockExams
-// version now that the exams backend is real.
+// shown here always matches what /exams says.
 function deadlinesByOffset(exams) {
   const map = {}
   exams.forEach((exam) => {
@@ -26,28 +32,30 @@ function deadlinesByOffset(exams) {
 
 export default function Planner() {
   const navigate = useNavigate()
-  // null = still checking; the mock week data only ever renders for an
-  // account that has actually created a subject. A fresh signup has no real
-  // plan-block backend yet, so it gets an honest empty state instead of
-  // someone else's Calc/Bio schedule. Swap this check for a real plan-blocks
-  // fetch once that backend exists — the empty-state branch below doesn't
-  // change either way.
+  // null = still checking subjects. You need at least one subject to build
+  // a plan against (blocks can still be subject-less "general review", but
+  // there's nothing to schedule at all on a totally empty account).
   const [hasStarted, setHasStarted] = useState(null)
+  const [subjects, setSubjects] = useState([])
   const [blocks, setBlocks] = useState([])
   const [deadlines, setDeadlines] = useState({})
   const [mobileView, setMobileView] = useState('week') // week | agenda
   const [editingBlock, setEditingBlock] = useState(null)
+  const [addingBlock, setAddingBlock] = useState(false)
   const [rebalanceMsg, setRebalanceMsg] = useState('')
 
+  function loadBlocks() {
+    getPlanBlocksForWeek().then(setBlocks)
+  }
+
   useEffect(() => {
-    getSubjects().then((subjects) => {
-      const started = subjects.length > 0
+    getSubjects().then((subs) => {
+      const started = subs.length > 0
+      setSubjects(subs)
       setHasStarted(started)
-      setBlocks(started ? mockPlanBlocks : [])
       if (started) {
+        loadBlocks()
         getExams().then((exams) => setDeadlines(deadlinesByOffset(exams)))
-      } else {
-        setDeadlines({})
       }
     })
   }, [])
@@ -56,27 +64,44 @@ export default function Planner() {
     return blocks.filter((b) => b.dayOffset === offset).sort((a, b) => a.time.localeCompare(b.time))
   }
 
-  function handleReschedule(newOffset, newTime) {
-    setBlocks((prev) =>
-      prev.map((b) => (b.id === editingBlock.id ? { ...b, dayOffset: newOffset, time: newTime } : b))
-    )
+  async function handleReschedule(newOffset, newTime) {
+    await updatePlanBlock(editingBlock.id, { dayOffset: newOffset, time: newTime })
     setEditingBlock(null)
+    loadBlocks()
   }
 
-  function handleRebalance() {
-    // TODO: real rebalancing needs the FSRS scheduler + exam-proximity
-    // weighting on the backend. This is a visible, honest stand-in: it nudges
-    // weak-topic-linked blocks earlier in the week rather than silently doing
-    // nothing when the button is pressed.
-    setBlocks((prev) =>
-      [...prev]
-        .sort((a, b) => {
-          const aWeak = a.title.toLowerCase().includes('weak') || a.title.toLowerCase().includes('double integrals')
-          const bWeak = b.title.toLowerCase().includes('weak') || b.title.toLowerCase().includes('double integrals')
-          return aWeak === bWeak ? 0 : aWeak ? -1 : 1
-        })
-        .map((b, i) => ({ ...b, dayOffset: Math.min(b.dayOffset, DAY_OFFSETS[Math.min(i, 4)]) }))
-    )
+  async function handleDelete() {
+    await deletePlanBlock(editingBlock.id)
+    setEditingBlock(null)
+    loadBlocks()
+  }
+
+  async function handleCreate({ subjectId, title, dayOffset, time, duration }) {
+    await createPlanBlock({ subjectId, title, dayOffset, time, duration })
+    setAddingBlock(false)
+    loadBlocks()
+  }
+
+  // TODO: real rebalancing needs the FSRS scheduler + exam-proximity
+  // weighting on the backend. This is a visible, honest stand-in: it nudges
+  // weak-topic-linked blocks earlier in the week rather than silently doing
+  // nothing when the button is pressed. Persists via updatePlanBlock now
+  // that blocks are real rows.
+  async function handleRebalance() {
+    const reordered = [...blocks]
+      .sort((a, b) => {
+        const aWeak = a.title.toLowerCase().includes('weak') || a.title.toLowerCase().includes('double integrals')
+        const bWeak = b.title.toLowerCase().includes('weak') || b.title.toLowerCase().includes('double integrals')
+        return aWeak === bWeak ? 0 : aWeak ? -1 : 1
+      })
+      .map((b, i) => ({ ...b, dayOffset: Math.min(b.dayOffset, DAY_OFFSETS[Math.min(i, 4)]) }))
+
+    const changed = reordered.filter((b) => {
+      const original = blocks.find((orig) => orig.id === b.id)
+      return original.dayOffset !== b.dayOffset
+    })
+    await Promise.all(changed.map((b) => updatePlanBlock(b.id, { dayOffset: b.dayOffset, time: b.time })))
+    loadBlocks()
     setRebalanceMsg('Workload rebalanced around your weakest topics and nearest deadlines.')
     setTimeout(() => setRebalanceMsg(''), 4000)
   }
@@ -102,13 +127,19 @@ export default function Planner() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-neutral-900">Study Plan</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Priorities turned into a schedule &mdash; tap any block to reschedule it.</p>
+          <p className="text-sm text-neutral-500 mt-0.5">Build your week &mdash; tap any block to edit it.</p>
         </div>
         {hasStarted && (
-          <Button variant="secondary" onClick={handleRebalance}>
-            <Sparkles className="w-4 h-4" />
-            Rebalance workload
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleRebalance}>
+              <Sparkles className="w-4 h-4" />
+              Rebalance workload
+            </Button>
+            <Button variant="primary" onClick={() => setAddingBlock(true)}>
+              <Plus className="w-4 h-4" />
+              Add block
+            </Button>
+          </div>
         )}
       </div>
 
@@ -217,14 +248,28 @@ export default function Planner() {
       </>
       )}
 
-      <Modal open={!!editingBlock} onClose={() => setEditingBlock(null)} title="Reschedule">
-        {editingBlock && <RescheduleForm block={editingBlock} onSave={handleReschedule} onCancel={() => setEditingBlock(null)} onOpenSubject={(id) => navigate(`/subjects/${id}`)} />}
+      <Modal open={!!editingBlock} onClose={() => setEditingBlock(null)} title="Edit block">
+        {editingBlock && (
+          <RescheduleForm
+            block={editingBlock}
+            onSave={handleReschedule}
+            onDelete={handleDelete}
+            onCancel={() => setEditingBlock(null)}
+            onOpenSubject={(id) => navigate(`/subjects/${id}`)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={addingBlock} onClose={() => setAddingBlock(false)} title="Add block">
+        {addingBlock && (
+          <AddBlockForm subjects={subjects} onSave={handleCreate} onCancel={() => setAddingBlock(false)} />
+        )}
       </Modal>
     </div>
   )
 }
 
-function RescheduleForm({ block, onSave, onCancel, onOpenSubject }) {
+function RescheduleForm({ block, onSave, onDelete, onCancel, onOpenSubject }) {
   const [dayOffset, setDayOffset] = useState(block.dayOffset)
   const [time, setTime] = useState(block.time)
   const [subject, setSubject] = useState(null)
@@ -259,28 +304,100 @@ function RescheduleForm({ block, onSave, onCancel, onOpenSubject }) {
         </select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="reschedule-time" className="text-sm font-medium text-neutral-700">Time</label>
-        <input
-          id="reschedule-time"
-          type="text"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="e.g. 4:30 PM"
-          className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary"
-        />
-      </div>
+      <TextField
+        id="reschedule-time"
+        label="Time"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
+        placeholder="e.g. 4:30 PM"
+      />
 
       <div className="flex items-center justify-between gap-2 pt-1">
-        {subject ? (
-          <button type="button" onClick={() => onOpenSubject(block.subjectId)} className="text-sm font-medium text-primary hover:underline">
-            View subject
-          </button>
-        ) : <span />}
-        <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onDelete}
+          className="p-2 -ml-2 rounded-md text-neutral-400 hover:text-danger hover:bg-danger-light"
+          aria-label="Delete block"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-3">
+          {subject && (
+            <button type="button" onClick={() => onOpenSubject(block.subjectId)} className="text-sm font-medium text-primary hover:underline">
+              View subject
+            </button>
+          )}
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
           <Button variant="primary" onClick={() => onSave(dayOffset, time)}>Save</Button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function AddBlockForm({ subjects, onSave, onCancel }) {
+  const [title, setTitle] = useState('')
+  const [subjectId, setSubjectId] = useState('')
+  const [dayOffset, setDayOffset] = useState(0)
+  const [time, setTime] = useState('')
+  const [duration, setDuration] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const canSave = title.trim() && time.trim() && duration.trim() && !saving
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave({ subjectId: subjectId || null, title: title.trim(), dayOffset, time: time.trim(), duration: duration.trim() })
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <TextField
+        id="add-block-title"
+        label="What are you studying?"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="e.g. Chapter 4 Review"
+      />
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="add-block-subject" className="text-sm font-medium text-neutral-700">Subject (optional)</label>
+        <select
+          id="add-block-subject"
+          value={subjectId}
+          onChange={(e) => setSubjectId(e.target.value)}
+          className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          <option value="">General &mdash; no subject</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="add-block-day" className="text-sm font-medium text-neutral-700">Day</label>
+        <select
+          id="add-block-day"
+          value={dayOffset}
+          onChange={(e) => setDayOffset(Number(e.target.value))}
+          className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {DAY_OFFSETS.map((offset) => {
+            const { weekday, date } = weekdayLabel(offset)
+            return (
+              <option key={offset} value={offset}>{weekday}, {date}</option>
+            )
+          })}
+        </select>
+      </div>
+
+      <TextField id="add-block-time" label="Time" value={time} onChange={(e) => setTime(e.target.value)} placeholder="e.g. 4:30 PM" />
+      <TextField id="add-block-duration" label="Duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g. 20 min" />
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" onClick={handleSave} disabled={!canSave}>Add to plan</Button>
       </div>
     </div>
   )

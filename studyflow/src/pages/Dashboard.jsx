@@ -12,7 +12,7 @@ import { getSettings } from '../lib/settingsStore'
 import { getWeakSubjects } from '../lib/subjectsStore'
 import { getExams } from '../lib/examsStore'
 import { getEstimatedReviewMinutes, getRecentActivity } from '../lib/activityStore'
-import { mockPlanBlocks } from '../data/mockPlan'
+import { getTodaysPlanBlocks } from '../lib/planBlocksStore'
 
 const activityIcons = {
   review: CheckCircle2,
@@ -87,6 +87,10 @@ export default function Dashboard() {
   const [estimatedMinutes, setEstimatedMinutes] = useState(null)
   const [recentActivity, setRecentActivity] = useState(null)
 
+  // Real today's plan (plan_blocks table via planBlocksStore) — replaces
+  // mockPlanBlocks. null = still loading.
+  const [todaysPlan, setTodaysPlan] = useState(null)
+
   useEffect(() => {
     getDueCount().then((count) => {
       setReviewsDue(count)
@@ -99,6 +103,9 @@ export default function Dashboard() {
     getWeakSubjects(3).then(setWeakSubjects)
     getExams().then((exams) => setUpcomingExams(exams.slice(0, 3)))
     getRecentActivity(4).then(setRecentActivity)
+    getTodaysPlanBlocks().then((blocks) =>
+      setTodaysPlan([...blocks].sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)))
+    )
   }, [])
 
   // % of today's study-time goal reached so far. null while any input is
@@ -107,15 +114,6 @@ export default function Dashboard() {
     studyMinutesToday == null || !dailyGoalMinutes
       ? null
       : Math.min(100, Math.round((studyMinutesToday / dailyGoalMinutes) * 100))
-
-  // Today's plan, read from the same mockPlanBlocks Planner.jsx uses
-  // (dayOffset 0), instead of a separate hardcoded list that could show
-  // blocks that aren't actually scheduled for today. Still mock — no
-  // study_plan_blocks table exists yet, unlike Needs Attention/Upcoming
-  // Exams above which are now real.
-  const todaysPlan = mockPlanBlocks
-    .filter((b) => b.dayOffset === 0)
-    .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time))
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto flex flex-col gap-4">
@@ -260,15 +258,21 @@ export default function Dashboard() {
             </button>
           }
         >
-          <ul className="flex flex-col gap-3">
-            {todaysPlan.map((item) => (
-              <li key={item.id} className="flex items-center gap-3">
-                <span className="text-xs font-medium text-neutral-400 w-16 shrink-0">{item.time}</span>
-                <span className="text-sm text-neutral-900 flex-1 truncate">{item.title}</span>
-                <span className="text-xs text-neutral-400 shrink-0">{item.duration}</span>
-              </li>
-            ))}
-          </ul>
+          {todaysPlan == null ? (
+            <p className="text-sm text-neutral-400">Loading&hellip;</p>
+          ) : todaysPlan.length === 0 ? (
+            <p className="text-sm text-neutral-400">Nothing scheduled today. <button type="button" onClick={() => navigate('/calendar')} className="text-primary hover:underline">Add a block</button>.</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {todaysPlan.map((item) => (
+                <li key={item.id} className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-neutral-400 w-16 shrink-0">{item.time}</span>
+                  <span className="text-sm text-neutral-900 flex-1 truncate">{item.title}</span>
+                  <span className="text-xs text-neutral-400 shrink-0">{item.duration}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card
