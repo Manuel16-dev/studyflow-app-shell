@@ -143,6 +143,11 @@ self.addEventListener('push', (event) => {
       icon: '/pwa-192.png',
       badge: '/pwa-maskable-192.png',
       data: { url: data.url },
+      // Vibrate + requireInteraction are the only "make it harder to miss"
+      // levers Web Push exposes — there's no custom-sound API. Both are
+      // Android/desktop only; iOS Safari silently ignores both.
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true,
     })
   )
 })
