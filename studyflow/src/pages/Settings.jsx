@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Info, Download, Trash2, LogOut } from 'lucide-react'
+import { Info, Download, Trash2, LogOut, Plus, Bell } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import TextField from '../components/ui/TextField'
@@ -14,6 +14,115 @@ import { getSettings, updateSettingsSection, applyTextSizeClass } from '../lib/s
 import { subscribeToPush, unsubscribeFromPush } from '../lib/pushStore'
 import { deleteAccount } from '../lib/authHelpers'
 import { exportMyData } from '../lib/exportData'
+import { getUpcomingReminders, createReminder, deleteReminder } from '../lib/remindersStore'
+
+function RemindersCard() {
+  const [reminders, setReminders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [title, setTitle] = useState('')
+  const [when, setWhen] = useState('')
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  function refresh() {
+    getUpcomingReminders()
+      .then(setReminders)
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    refresh()
+  }, [])
+
+  async function handleAdd() {
+    if (!title.trim() || !when) {
+      setError('Add a title and a time.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await createReminder(title.trim(), new Date(when).toISOString())
+      setTitle('')
+      setWhen('')
+      setAdding(false)
+      refresh()
+    } catch (err) {
+      setError(err.message ?? 'Could not save — please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    await deleteReminder(id)
+    refresh()
+  }
+
+  return (
+    <Card title="Reminders">
+      <p className="text-sm text-neutral-500 mb-3">
+        Set your own reminders for anything — these fire at the exact time you pick, regardless of quiet hours.
+      </p>
+      {error && (
+        <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">{error}</p>
+      )}
+      {!loading && reminders.length > 0 && (
+        <div className="flex flex-col divide-y divide-neutral-100 mb-3">
+          {reminders.map((r) => (
+            <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Bell className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-800 truncate">{r.title}</p>
+                  <p className="text-xs text-neutral-400">
+                    {new Date(r.remind_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDelete(r.id)}
+                aria-label="Delete reminder"
+                className="p-1.5 rounded-md text-neutral-400 hover:text-danger hover:bg-danger-light shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {!loading && reminders.length === 0 && !adding && (
+        <p className="text-sm text-neutral-400 mb-3">No reminders set.</p>
+      )}
+      {adding ? (
+        <div className="flex flex-col gap-3 pt-1">
+          <TextField id="reminder-title" label="Remind me about" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Email my professor" />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="reminder-when" className="text-sm font-medium text-neutral-700">When</label>
+            <input
+              id="reminder-when"
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setAdding(false); setError(null) }}>Cancel</Button>
+            <Button variant="primary" onClick={handleAdd} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => setAdding(true)}>
+          <Plus className="w-4 h-4" />
+          Add reminder
+        </Button>
+      )}
+    </Card>
+  )
+}
 
 function Select({ id, label, value, onChange, options }) {
   return (
@@ -224,6 +333,8 @@ export default function Settings() {
           </span>
         </div>
       </Card>
+
+      <RemindersCard />
 
       {/* Notifications */}
       <Card title="Notifications">
