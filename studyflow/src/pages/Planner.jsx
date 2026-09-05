@@ -435,12 +435,20 @@ function AddBlockForm({ subjects, defaultDate, onSave, onCancel }) {
   const [time, setTime] = useState('')
   const [duration, setDuration] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const canSave = title.trim() && time.trim() && duration.trim() && blockDate && !saving
 
   async function handleSave() {
     setSaving(true)
-    await onSave({ subjectId: subjectId || null, title: title.trim(), blockDate, time: time.trim(), duration: duration.trim() })
+    setError('')
+    try {
+      await onSave({ subjectId: subjectId || null, title: title.trim(), blockDate, time: time.trim(), duration: duration.trim() })
+    } catch (err) {
+      setError(err.message || 'Could not save this block. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -477,10 +485,11 @@ function AddBlockForm({ subjects, defaultDate, onSave, onCancel }) {
       />
       <TextField id="add-block-time" label="Time" value={time} onChange={(e) => setTime(e.target.value)} placeholder="e.g. 4:30 PM" />
       <TextField id="add-block-duration" label="Duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g. 20 min" />
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-        <Button variant="primary" onClick={handleSave} disabled={!canSave}>Add to plan</Button>
+        <Button variant="primary" onClick={handleSave} disabled={!canSave}>{saving ? 'Adding\u2026' : 'Add to plan'}</Button>
       </div>
     </div>
   )

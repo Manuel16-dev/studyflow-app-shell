@@ -10,6 +10,7 @@
 // (0 = today) for anything that still wants it, e.g. "is this today".
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
+import { withTimeout } from './withTimeout'
 
 const MS_PER_DAY = 86400000
 
@@ -69,22 +70,26 @@ export async function getTodaysPlanBlocks() {
 
 export async function createPlanBlock({ subjectId, title, blockDate, time, duration }) {
   const userId = await requireUserId()
-  const { error } = await supabase.from('plan_blocks').insert({
-    user_id: userId,
-    subject_id: subjectId || null,
-    title,
-    block_date: blockDate,
-    time,
-    duration,
-  })
+  const { error } = await withTimeout(
+    supabase.from('plan_blocks').insert({
+      user_id: userId,
+      subject_id: subjectId || null,
+      title,
+      block_date: blockDate,
+      time,
+      duration,
+    })
+  )
   if (error) throw error
 }
 
 export async function updatePlanBlock(id, { blockDate, time }) {
-  const { error } = await supabase
-    .from('plan_blocks')
-    .update({ block_date: blockDate, time, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  const { error } = await withTimeout(
+    supabase
+      .from('plan_blocks')
+      .update({ block_date: blockDate, time, updated_at: new Date().toISOString() })
+      .eq('id', id)
+  )
   if (error) throw error
 }
 
