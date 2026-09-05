@@ -3,6 +3,9 @@ const variants = {
   secondary: 'bg-surface text-neutral-700 border border-neutral-300 hover:bg-neutral-50 disabled:text-neutral-300 disabled:bg-neutral-50',
   ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100 disabled:text-neutral-300',
   danger: 'bg-danger text-white hover:bg-danger/90 disabled:bg-neutral-200 disabled:text-neutral-500',
+  // Gradient accent CTA — reserved for the single primary "create" action on
+  // a screen (e.g. Planner's Add block), not a replacement for `primary`.
+  gradient: 'bg-gradient-to-r from-primary to-violet text-white hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none',
 }
 
 export default function Button({

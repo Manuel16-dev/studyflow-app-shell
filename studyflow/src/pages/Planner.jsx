@@ -14,6 +14,7 @@ import {
 } from '../lib/planBlocksStore'
 import { getSubjects } from '../lib/subjectsStore'
 import { getExams } from '../lib/examsStore'
+import { getSubjectColor } from '../lib/subjectColor'
 
 const DAY_OFFSETS = [0, 1, 2, 3, 4]
 
@@ -107,17 +108,23 @@ export default function Planner() {
   }
 
   function BlockCard({ block }) {
+    const color = getSubjectColor(block.subjectId)
     return (
       <button
         type="button"
         onClick={() => setEditingBlock(block)}
-        className="w-full text-left bg-primary-light border border-primary/20 rounded-md p-2.5 hover:border-primary transition-colors"
+        className={`w-full text-left ${color.bg} border ${color.border} rounded-lg p-2.5 ${color.borderHover} hover:shadow-sm hover:-translate-y-0.5 transition-all duration-150`}
       >
-        <p className="text-xs font-medium text-neutral-900">{block.title}</p>
-        <p className="flex items-center gap-1 text-[11px] text-neutral-500 mt-1">
-          <Clock className="w-3 h-3" />
-          {block.time} &middot; {block.duration}
-        </p>
+        <div className="flex items-start gap-2">
+          <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-neutral-900 truncate">{block.title}</p>
+            <p className="flex items-center gap-1 text-[11px] text-neutral-500 mt-1">
+              <Clock className="w-3 h-3 shrink-0" />
+              {block.time} &middot; {block.duration}
+            </p>
+          </div>
+        </div>
       </button>
     )
   }
@@ -135,7 +142,7 @@ export default function Planner() {
               <Sparkles className="w-4 h-4" />
               Rebalance workload
             </Button>
-            <Button variant="primary" onClick={() => setAddingBlock(true)}>
+            <Button variant="gradient" onClick={() => setAddingBlock(true)}>
               <Plus className="w-4 h-4" />
               Add block
             </Button>
@@ -192,10 +199,23 @@ export default function Planner() {
           const { weekday, date, isToday } = weekdayLabel(offset)
           const dayDeadlines = deadlines[offset] ?? []
           return (
-            <Card key={offset} className={isToday ? 'ring-2 ring-primary' : ''}>
-              <div className="mb-3">
-                <p className="text-sm font-semibold text-neutral-900">{weekday}</p>
-                <p className="text-xs text-neutral-500">{date}{isToday ? ' \u00b7 Today' : ''}</p>
+            <Card
+              key={offset}
+              className={isToday ? 'relative ring-2 ring-primary shadow-lg shadow-primary/10 overflow-hidden' : ''}
+            >
+              {isToday && (
+                <span className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-violet" aria-hidden="true" />
+              )}
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">{weekday}</p>
+                  <p className="text-xs text-neutral-500">{date}</p>
+                </div>
+                {isToday && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wide bg-gradient-to-r from-primary to-violet text-white rounded-full px-2 py-0.5">
+                    Today
+                  </span>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 {dayDeadlines.map((exam) => (
@@ -226,8 +246,13 @@ export default function Planner() {
             if (dayBlocks.length === 0 && dayDeadlines.length === 0) return null
             return (
               <div key={offset}>
-                <p className="text-sm font-semibold text-neutral-900 mb-2">
-                  {weekday}, {date}{isToday ? ' \u00b7 Today' : ''}
+                <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900 mb-2">
+                  {weekday}, {date}
+                  {isToday && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide bg-gradient-to-r from-primary to-violet text-white rounded-full px-2 py-0.5">
+                      Today
+                    </span>
+                  )}
                 </p>
                 <div className="flex flex-col gap-2">
                   {dayDeadlines.map((exam) => (
