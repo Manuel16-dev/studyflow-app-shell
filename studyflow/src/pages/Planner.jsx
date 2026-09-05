@@ -200,7 +200,7 @@ export default function Planner() {
             <p className="text-xs font-semibold text-neutral-900 truncate">{block.title}</p>
             <p className="flex items-center gap-1 text-[11px] text-neutral-500 mt-1">
               <Clock className="w-3 h-3 shrink-0" />
-              {block.time} &middot; {block.duration}
+              {block.time} &middot; {block.duration} mins
             </p>
           </div>
         </div>
