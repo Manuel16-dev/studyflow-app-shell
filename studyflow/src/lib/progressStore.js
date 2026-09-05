@@ -102,4 +102,49 @@ export async function getConsistencyLast7Days() {
   return days.map((d) => studiedDays.has(dayKey(d)))
 }
 
+// Minutes studied per day for the last 7 calendar days — the trend view
+// studySessionsStore doesn't provide (it only has "today" and "lifetime").
+// Same table/window as getConsistencyLast7Days, different aggregation.
+export async function getStudyTimeTrend() {
+  const userId = await requireUserId()
+  const days = lastNDays(7)
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .select('started_at, duration_seconds')
+    .eq('user_id', userId)
+    .gte('started_at', days[0].toISOString())
+  if (error) throw error
+
+  const secondsByDay = {}
+  for (const row of data) {
+    const key = dayKey(new Date(row.started_at))
+    secondsByDay[key] = (secondsByDay[key] ?? 0) + row.duration_seconds
+  }
+
+  return days.map((d) => ({
+    label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+    value: Math.round((secondsByDay[dayKey(d)] ?? 0) / 60),
+  }))
+}
+
+// All-time Again/Hard/Good/Easy breakdown — deliberately all-time like
+// getRetentionRate (the 7-day charts above already cover the trend view).
+// Distinct from retention rate: retention collapses this to a single
+// success/fail number, this shows the shape behind it.
+const RATING_LABELS = { [Rating.Again]: 'Again', [Rating.Hard]: 'Hard', [Rating.Good]: 'Good', [Rating.Easy]: 'Easy' }
+
+export async function getRatingDistribution() {
+  const logs = await fetchReviewLogsSince(null)
+  if (logs.length === 0) return null
+
+  const counts = { [Rating.Again]: 0, [Rating.Hard]: 0, [Rating.Good]: 0, [Rating.Easy]: 0 }
+  for (const log of logs) counts[log.rating] = (counts[log.rating] ?? 0) + 1
+
+  return Object.entries(counts).map(([rating, count]) => ({
+    label: RATING_LABELS[rating],
+    count,
+    percent: Math.round((count / logs.length) * 100),
+  }))
+}
+
 export { getWeakSubjects, getStreakDays }

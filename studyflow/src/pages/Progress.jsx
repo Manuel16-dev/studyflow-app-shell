@@ -11,7 +11,11 @@ import {
   getOverallMastery,
   getWeeklyTrends,
   getConsistencyLast7Days,
+  getStudyTimeTrend,
+  getRatingDistribution,
 } from '../lib/progressStore'
+
+const ratingColor = { Again: 'var(--color-danger)', Hard: 'var(--color-accent)', Good: 'var(--color-primary)', Easy: 'var(--color-secondary)' }
 
 const severityLabel = { weak: 'Weak', attention: 'Attention', mastered: 'Strong' }
 
@@ -43,6 +47,8 @@ export default function Progress() {
   const [retentionTrend, setRetentionTrend] = useState([])
   const [cardsTrend, setCardsTrend] = useState([])
   const [consistency, setConsistency] = useState({ streakDays: 0, last7Days: [] })
+  const [studyTimeTrend, setStudyTimeTrend] = useState([])
+  const [ratingDistribution, setRatingDistribution] = useState(null)
 
   useEffect(() => {
     getSubjects().then(setSubjects)
@@ -59,6 +65,8 @@ export default function Progress() {
     Promise.all([getStreakDays(), getConsistencyLast7Days()]).then(([streakDays, last7Days]) =>
       setConsistency({ streakDays, last7Days })
     )
+    getStudyTimeTrend().then(setStudyTimeTrend)
+    getRatingDistribution().then(setRatingDistribution)
   }, [])
 
   const weekTotal = cardsTrend.reduce((sum, d) => sum + d.value, 0)
@@ -99,6 +107,42 @@ export default function Progress() {
             color="var(--color-secondary)"
             summary={`${weekTotal} cards reviewed in total over the last 7 days.`}
           />
+        </Card>
+
+        <Card title="Study time, last 7 days">
+          <SimpleBarChart
+            data={studyTimeTrend}
+            unit="m"
+            color="var(--color-accent)"
+            summary={`${studyTimeTrend.reduce((sum, d) => sum + d.value, 0)} minutes studied in total over the last 7 days.`}
+          />
+        </Card>
+
+        <Card title="Answer breakdown">
+          {ratingDistribution ? (
+            <div className="flex flex-col gap-3">
+              {ratingDistribution.map((r) => (
+                <div key={r.label}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-neutral-700">{r.label}</span>
+                    <span className="text-neutral-500 tabular-nums">{r.count} &middot; {r.percent}%</span>
+                  </div>
+                  <div
+                    className="h-2 rounded-full bg-neutral-100 overflow-hidden"
+                    role="img"
+                    aria-label={`${r.label}: ${r.percent}% of all reviews`}
+                  >
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${r.percent}%`, backgroundColor: ratingColor[r.label] }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">No reviews yet.</p>
+          )}
         </Card>
       </div>
 
