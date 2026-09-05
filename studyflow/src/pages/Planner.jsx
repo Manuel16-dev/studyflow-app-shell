@@ -206,13 +206,11 @@ export default function Planner() {
               {isToday && (
                 <span className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-violet" aria-hidden="true" />
               )}
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">{weekday}</p>
-                  <p className="text-xs text-neutral-500">{date}</p>
-                </div>
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-neutral-900">{weekday}</p>
+                <p className="text-xs text-neutral-500">{date}</p>
                 {isToday && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide bg-gradient-to-r from-primary to-violet text-white rounded-full px-2 py-0.5">
+                  <span className="inline-block mt-1 text-[9px] font-semibold uppercase tracking-wide bg-gradient-to-r from-primary to-violet text-white rounded-full px-1.5 py-0.5">
                     Today
                   </span>
                 )}
