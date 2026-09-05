@@ -2,10 +2,12 @@
 // sql/plan_blocks_table.sql). RLS-scoped to auth.uid(), same pattern as
 // subjectsStore/examsStore. Replaces src/data/mockPlan.js.
 //
-// Schema decision: blocks are stored with a real `block_date`, not a
-// dayOffset. dayOffset (0 = today, 1 = tomorrow, ...) is a *derived* view
-// for the 5-day Planner grid, computed client-side against "today" —
-// same relationship exams has between exam_date and daysLeft.
+// Schema: blocks are stored with a real `block_date`. Create/update now take
+// that date directly (previously they took a 0-4 dayOffset for the old 5-day
+// week grid — that stopped making sense once Planner moved to a month-grid
+// view, since most days in a month sit outside a 0-4 offset window).
+// `dayOffset` is kept on the returned block shape as a derived convenience
+// (0 = today) for anything that still wants it, e.g. "is this today".
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
 
@@ -15,12 +17,6 @@ function todayStart() {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   return d
-}
-
-function offsetToDateStr(offset) {
-  const d = todayStart()
-  d.setDate(d.getDate() + offset)
-  return d.toISOString().slice(0, 10)
 }
 
 function dateStrToOffset(dateStr) {
@@ -40,20 +36,17 @@ function rowToBlock(row) {
   }
 }
 
-export function weekdayLabel(dayOffset) {
-  const d = todayStart()
-  d.setDate(d.getDate() + dayOffset)
-  return {
-    weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
-    date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    isToday: dayOffset === 0,
-  }
+// First/last day (YYYY-MM-DD) of the given month. month is 0-indexed (Date convention).
+function monthRange(year, month) {
+  const first = new Date(year, month, 1)
+  const last = new Date(year, month + 1, 0)
+  return { start: first.toISOString().slice(0, 10), end: last.toISOString().slice(0, 10) }
 }
 
-// All blocks in the 5-day window the Planner grid shows (today .. today+4).
-export async function getPlanBlocksForWeek() {
-  const start = offsetToDateStr(0)
-  const end = offsetToDateStr(4)
+// All blocks whose block_date falls within the given month — powers the
+// month-grid view. month is 0-indexed.
+export async function getPlanBlocksForMonth(year, month) {
+  const { start, end } = monthRange(year, month)
   const { data, error } = await supabase
     .from('plan_blocks')
     .select('*')
@@ -65,39 +58,37 @@ export async function getPlanBlocksForWeek() {
 
 // Just today's blocks, for the Dashboard "Study Plan for Today" card.
 export async function getTodaysPlanBlocks() {
+  const todayStr = todayStart().toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from('plan_blocks')
     .select('*')
-    .eq('block_date', offsetToDateStr(0))
+    .eq('block_date', todayStr)
   if (error) throw error
   return data.map(rowToBlock)
 }
 
-export async function createPlanBlock({ subjectId, title, dayOffset, time, duration }) {
+export async function createPlanBlock({ subjectId, title, blockDate, time, duration }) {
   const userId = await requireUserId()
   const { error } = await supabase.from('plan_blocks').insert({
     user_id: userId,
     subject_id: subjectId || null,
     title,
-    block_date: offsetToDateStr(dayOffset),
+    block_date: blockDate,
     time,
     duration,
   })
   if (error) throw error
-  return getPlanBlocksForWeek()
 }
 
-export async function updatePlanBlock(id, { dayOffset, time }) {
+export async function updatePlanBlock(id, { blockDate, time }) {
   const { error } = await supabase
     .from('plan_blocks')
-    .update({ block_date: offsetToDateStr(dayOffset), time, updated_at: new Date().toISOString() })
+    .update({ block_date: blockDate, time, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw error
-  return getPlanBlocksForWeek()
 }
 
 export async function deletePlanBlock(id) {
   const { error } = await supabase.from('plan_blocks').delete().eq('id', id)
   if (error) throw error
-  return getPlanBlocksForWeek()
 }

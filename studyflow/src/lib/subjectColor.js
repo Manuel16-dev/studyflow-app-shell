@@ -10,11 +10,11 @@
 // deadlines elsewhere in Planner, so reusing it for a subject would make a
 // study block look like an overdue exam.
 const PALETTE = {
-  primary: { bg: 'bg-primary-light', border: 'border-primary/30', borderHover: 'hover:border-primary', text: 'text-primary', dot: 'bg-primary' },
-  secondary: { bg: 'bg-secondary-light', border: 'border-secondary/30', borderHover: 'hover:border-secondary', text: 'text-secondary', dot: 'bg-secondary' },
-  accent: { bg: 'bg-accent-light', border: 'border-accent/30', borderHover: 'hover:border-accent', text: 'text-accent', dot: 'bg-accent' },
-  violet: { bg: 'bg-violet-light', border: 'border-violet/30', borderHover: 'hover:border-violet', text: 'text-violet', dot: 'bg-violet' },
-  info: { bg: 'bg-info-light', border: 'border-info/30', borderHover: 'hover:border-info', text: 'text-info', dot: 'bg-info' },
+  primary: { chipBg: 'bg-primary/15', accentBorder: 'border-l-4 border-primary', dot: 'bg-primary', text: 'text-primary' },
+  secondary: { chipBg: 'bg-secondary/15', accentBorder: 'border-l-4 border-secondary', dot: 'bg-secondary', text: 'text-secondary' },
+  accent: { chipBg: 'bg-accent/15', accentBorder: 'border-l-4 border-accent', dot: 'bg-accent', text: 'text-accent' },
+  violet: { chipBg: 'bg-violet/15', accentBorder: 'border-l-4 border-violet', dot: 'bg-violet', text: 'text-violet' },
+  info: { chipBg: 'bg-info/15', accentBorder: 'border-l-4 border-info', dot: 'bg-info', text: 'text-info' },
 }
 const KEYS = Object.keys(PALETTE)
 
