@@ -88,17 +88,23 @@ export async function extractText(file) {
 }
 
 async function extractPdf(file) {
-  const [{ default: workerUrl }, pdfjs] = await Promise.all([
-    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-    import('pdfjs-dist'),
-  ])
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-
   let doc
   try {
+    const [{ default: workerUrl }, pdfjs] = await Promise.all([
+      import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+      import('pdfjs-dist'),
+    ])
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
     doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
-  } catch {
-    throw new ExtractionError(`"${file.name}" couldn't be opened as a PDF — it may be corrupted.`)
+  } catch (err) {
+    if (err instanceof ExtractionError) throw err
+    // Covers both "not a valid PDF" and "the PDF-reading worker itself
+    // failed to load" (e.g. flaky connection, browser blocking the worker
+    // script) — both surface here since they're now one try/catch. A
+    // reload re-fetches the worker script fresh, which resolves the latter.
+    throw new ExtractionError(
+      `Couldn't read "${file.name}". If this keeps happening, try reloading the page and generating again.`
+    )
   }
 
   // Page markers double as citation anchors: the model is told to reference

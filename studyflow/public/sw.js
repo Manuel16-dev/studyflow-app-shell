@@ -8,7 +8,7 @@
 // Never caches Supabase API traffic: all app data is user-scoped and must
 // stay live; offline the app simply shows its cached shell.
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const SHELL_CACHE = `studyflow-shell-${VERSION}`
 const RUNTIME_CACHE = `studyflow-runtime-${VERSION}`
 const FONT_CACHE = `studyflow-fonts-${VERSION}`
@@ -53,6 +53,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
+
+  // Never intercept requests for constructing a Worker (e.g. pdfjs-dist's
+  // PDF-parsing worker, loaded dynamically during "Generate cards"). Service
+  // Worker interception of worker-script fetches is unreliable across
+  // browsers — iOS Safari in particular silently fails the Worker
+  // construction when a SW sits in front of that request. Let the browser
+  // fetch these directly; they're same-origin hashed assets anyway, so
+  // there's no offline/caching benefit lost by skipping them here.
+  if (request.destination === 'worker') return
 
   const url = new URL(request.url)
 
@@ -143,11 +152,6 @@ self.addEventListener('push', (event) => {
       icon: '/pwa-192.png',
       badge: '/pwa-maskable-192.png',
       data: { url: data.url },
-      // Vibrate + requireInteraction are the only "make it harder to miss"
-      // levers Web Push exposes — there's no custom-sound API. Both are
-      // Android/desktop only; iOS Safari silently ignores both.
-      vibrate: [200, 100, 200, 100, 200],
-      requireInteraction: true,
     })
   )
 })
