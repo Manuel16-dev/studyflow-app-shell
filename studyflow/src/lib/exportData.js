@@ -41,4 +41,4 @@ export async function exportMyData() {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
-}
+}

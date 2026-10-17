@@ -17,7 +17,7 @@ export default function Slider({
         <label htmlFor={id} className="text-sm font-medium text-neutral-900">
           {label}
         </label>
-        <span className="text-sm font-semibold text-primary shrink-0">{valueLabel ?? value}</span>
+        <span className="text-sm font-semibold text-primary-text shrink-0">{valueLabel ?? value}</span>
       </div>
       {description && <p className="text-xs text-neutral-500 mt-0.5 mb-2">{description}</p>}
       <input

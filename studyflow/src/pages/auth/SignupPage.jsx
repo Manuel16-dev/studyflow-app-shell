@@ -69,7 +69,7 @@ export default function SignupPage() {
     <AuthLayout title="Create account" subtitle="Start building your memory, one card at a time.">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {errors.form && (
-          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2">
+          <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2">
             {errors.form}
           </p>
         )}
@@ -126,7 +126,7 @@ export default function SignupPage() {
 
       <p className="text-sm text-neutral-500 text-center mt-6">
         Already have an account?{' '}
-        <Link to="/login" className="text-primary font-medium hover:underline">
+        <Link to="/login" className="text-primary-text font-medium hover:underline">
           Log in
         </Link>
       </p>

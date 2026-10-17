@@ -46,7 +46,7 @@ export default function LoginPage() {
     <AuthLayout title="Log in" subtitle="Welcome back — let's pick up where you left off.">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {errors.form && (
-          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2">
+          <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2">
             {errors.form}
           </p>
         )}
@@ -69,7 +69,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
           />
-          <Link to="/forgot-password" className="text-sm text-primary hover:underline self-end">
+          <Link to="/forgot-password" className="text-sm text-primary-text hover:underline self-end">
             Forgot password?
           </Link>
         </div>
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
       <p className="text-sm text-neutral-500 text-center mt-6">
         New to StudyFlow?{' '}
-        <Link to="/signup" className="text-primary font-medium hover:underline">
+        <Link to="/signup" className="text-primary-text font-medium hover:underline">
           Create an account
         </Link>
       </p>

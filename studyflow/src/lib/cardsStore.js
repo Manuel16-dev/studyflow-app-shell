@@ -13,7 +13,7 @@ export function nextCardId() {
 export async function getCards(subjectId) {
   const { data, error } = await supabase
     .from('cards')
-    .select('id, front, back')
+    .select('id, front, back, source_ref, kind')
     .eq('subject_id', subjectId)
     .order('created_at', { ascending: true })
   if (error) throw error
@@ -67,8 +67,10 @@ export async function addCard(subjectId, card) {
   return getCards(subjectId)
 }
 
-// Bulk insert — used by the AI-generated-cards approve flow.
-export async function addCards(subjectId, cards) {
+// Bulk insert — used by the AI-generated-cards approve flow. Generated cards
+// also carry where they came from (material, chunk, page reference) and
+// their kind; hand-made cards leave those null / 'flashcard'.
+export async function addCards(subjectId, cards, { materialId = null } = {}) {
   const userId = await requireUserId()
   const rows = cards.map((c) => ({
     id: c.id,
@@ -76,6 +78,10 @@ export async function addCards(subjectId, cards) {
     user_id: userId,
     front: c.front,
     back: c.back,
+    material_id: materialId,
+    chunk_index: c.chunkIndex ?? null,
+    source_ref: c.sourceRef && c.sourceRef !== '—' ? c.sourceRef : null,
+    kind: c.kind === 'practice' ? 'practice' : 'flashcard',
   }))
   const { error } = await supabase.from('cards').insert(rows)
   if (error) throw error

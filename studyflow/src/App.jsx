@@ -18,6 +18,7 @@ import Planner from './pages/Planner'
 import Settings from './pages/Settings'
 import Flashcards from './pages/Flashcards'
 import Profile from './pages/Profile'
+import Library from './pages/Library'
 import ThemeSwitcher from './components/ui/ThemeSwitcher'
 
 // Placeholder copy per screen — real screens replace these one by one,
@@ -31,7 +32,6 @@ const pages = {
   exams: { title: 'Exams', description: 'Readiness by topic, days remaining, and prep recommendations.' },
   calendar: { title: 'Calendar', description: 'Study plan, review blocks, and exam deadlines.' },
   progress: { title: 'Progress', description: 'Retention, mastery, and consistency over time.' },
-  library: { title: 'Library', description: 'Uploaded source material and generated card sets.' },
   settings: { title: 'Settings', description: 'Account, preferences, and study defaults.' },
   profile: { title: 'Profile', description: 'Your account and study identity.' },
 }
@@ -60,7 +60,7 @@ export default function App() {
             <Route path="/exams/:id" element={<ExamDetail />} />
             <Route path="/calendar" element={<Planner />} />
             <Route path="/progress" element={<Progress />} />
-            <Route path="/library" element={<PlaceholderPage {...pages.library} />} />
+            <Route path="/library" element={<Library />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
           </Route>

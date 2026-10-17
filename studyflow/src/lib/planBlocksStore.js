@@ -11,18 +11,10 @@
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
 import { withTimeout } from './withTimeout'
-
-const MS_PER_DAY = 86400000
-
-function todayStart() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
-}
+import { daysUntilKey, monthRangeKeys, todayKey } from './dates'
 
 function dateStrToOffset(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`)
-  return Math.round((d.getTime() - todayStart().getTime()) / MS_PER_DAY)
+  return daysUntilKey(dateStr)
 }
 
 function rowToBlock(row) {
@@ -37,17 +29,10 @@ function rowToBlock(row) {
   }
 }
 
-// First/last day (YYYY-MM-DD) of the given month. month is 0-indexed (Date convention).
-function monthRange(year, month) {
-  const first = new Date(year, month, 1)
-  const last = new Date(year, month + 1, 0)
-  return { start: first.toISOString().slice(0, 10), end: last.toISOString().slice(0, 10) }
-}
-
 // All blocks whose block_date falls within the given month — powers the
 // month-grid view. month is 0-indexed.
 export async function getPlanBlocksForMonth(year, month) {
-  const { start, end } = monthRange(year, month)
+  const { start, end } = monthRangeKeys(year, month)
   const { data, error } = await supabase
     .from('plan_blocks')
     .select('*')
@@ -59,7 +44,7 @@ export async function getPlanBlocksForMonth(year, month) {
 
 // Just today's blocks, for the Dashboard "Study Plan for Today" card.
 export async function getTodaysPlanBlocks() {
-  const todayStr = todayStart().toISOString().slice(0, 10)
+  const todayStr = todayKey()
   const { data, error } = await supabase
     .from('plan_blocks')
     .select('*')

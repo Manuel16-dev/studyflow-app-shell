@@ -9,10 +9,10 @@ import { getSettings } from '../lib/settingsStore'
 import { logStudySession } from '../lib/studySessionsStore'
 
 const ratings = [
-  { id: 'again', rating: Rating.Again, label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger bg-danger-light hover:bg-danger hover:text-white' },
-  { id: 'hard', rating: Rating.Hard, label: 'Hard', Icon: TrendingDown, classes: 'border-accent text-accent bg-accent-light hover:bg-accent hover:text-white' },
-  { id: 'good', rating: Rating.Good, label: 'Good', Icon: Check, classes: 'border-secondary text-secondary bg-secondary-light hover:bg-secondary hover:text-white' },
-  { id: 'easy', rating: Rating.Easy, label: 'Easy', Icon: Zap, classes: 'border-info text-info bg-info-light hover:bg-info hover:text-white' },
+  { id: 'again', rating: Rating.Again, label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger-text bg-danger-light hover:bg-danger hover:text-white' },
+  { id: 'hard', rating: Rating.Hard, label: 'Hard', Icon: TrendingDown, classes: 'border-accent text-accent-text bg-accent-light hover:bg-accent hover:text-white' },
+  { id: 'good', rating: Rating.Good, label: 'Good', Icon: Check, classes: 'border-secondary text-secondary-text bg-secondary-light hover:bg-secondary hover:text-white' },
+  { id: 'easy', rating: Rating.Easy, label: 'Easy', Icon: Zap, classes: 'border-info text-info-text bg-info-light hover:bg-info hover:text-white' },
 ]
 
 export default function Review() {
@@ -107,7 +107,7 @@ export default function Review() {
           <p className="text-sm text-neutral-400">Loading your review queue…</p>
         ) : done ? (
           <div className="w-full max-w-sm text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary mx-auto mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary-text mx-auto mb-4">
               <PartyPopper className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">
@@ -133,7 +133,7 @@ export default function Review() {
           </div>
         ) : (
           <div className="w-full max-w-md">
-            <p className="text-xs font-medium text-primary text-center mb-2">{current.subject}</p>
+            <p className="text-xs font-medium text-primary-text text-center mb-2">{current.subject}</p>
             <div className="bg-surface border border-neutral-200 rounded-lg p-8 min-h-[280px] flex flex-col items-center justify-center text-center gap-4">
               <h1 className="text-lg md:text-xl font-semibold text-neutral-900">{current.question}</h1>
 

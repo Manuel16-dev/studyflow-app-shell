@@ -58,8 +58,10 @@ async function invoke(payload) {
 // uploaded earlier ("generate more" without re-uploading). Pass
 // storagePath (+ subjectId) instead, with no materialId, on first upload —
 // the function persists the material and starts coverage tracking.
-export function generateCards({ subjectId, materialName, text, count = 12, materialId, storagePath }) {
-  return invoke({ mode: 'generate', subjectId, materialName, text, count, materialId, storagePath })
+// kind: 'flashcard' (default) or 'practice' (exam-style questions with a
+// worked answer).
+export function generateCards({ subjectId, materialName, text, count = 12, kind = 'flashcard', materialId, storagePath }) {
+  return invoke({ mode: 'generate', subjectId, materialName, text, count, kind, materialId, storagePath })
 }
 
 // mode "regenerate": one existing candidate + its source text -> a fresh
@@ -67,4 +69,4 @@ export function generateCards({ subjectId, materialName, text, count = 12, mater
 // different phrasing rather than a near-duplicate.
 export function regenerateCard({ subjectId, materialName, text, card }) {
   return invoke({ mode: 'regenerate', subjectId, materialName, text, card })
-}
+}

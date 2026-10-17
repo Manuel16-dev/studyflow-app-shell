@@ -7,43 +7,60 @@ import { requireUserId } from './authHelpers'
 import { getSubjectMastery, getWeakSubjects } from './subjectsStore'
 import { getStreakDays } from './studySessionsStore'
 import { Rating } from './fsrs'
+import { dayKey, lastNDays } from './dates'
 
-const MS_PER_DAY = 86400000
+const PAGE = 1000
 
-// Local (client) calendar-day key — same convention as studySessionsStore,
-// so "today" means the same thing across every analytics surface.
-function dayKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-// Oldest-to-newest list of the last n calendar days, including today —
-// the order both charts and the consistency row render left-to-right.
-function lastNDays(n) {
-  return Array.from({ length: n }, (_, i) => new Date(Date.now() - (n - 1 - i) * MS_PER_DAY))
-}
-
+// Every review log since a date, fetched in pages. PostgREST caps a single
+// response at 1000 rows, so a plain select would silently truncate a busy
+// week. Only used for the bounded 7-day window; all-time numbers use
+// head-only counts below.
 async function fetchReviewLogsSince(sinceDate) {
   const userId = await requireUserId()
-  let query = supabase.from('review_logs').select('rating, reviewed_at').eq('user_id', userId)
-  if (sinceDate) query = query.gte('reviewed_at', sinceDate.toISOString())
-  const { data, error } = await query
-  if (error) throw error
-  return data
+  const rows = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('review_logs')
+      .select('rating, reviewed_at')
+      .eq('user_id', userId)
+      .gte('reviewed_at', sinceDate.toISOString())
+      .order('reviewed_at', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    rows.push(...data)
+    if (data.length < PAGE) return rows
+  }
 }
 
-// All-time recall success rate — % of reviews NOT rated "Again". This is
+// Head-only count: no rows are transferred, and there is no row cap.
+async function countLogs(userId, { sinceDate, rating, notRating } = {}) {
+  let query = supabase.from('review_logs').select('*', { count: 'exact', head: true }).eq('user_id', userId)
+  if (sinceDate) query = query.gte('reviewed_at', sinceDate.toISOString())
+  if (rating != null) query = query.eq('rating', rating)
+  if (notRating != null) query = query.neq('rating', notRating)
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}
+
+// All-time recall success rate: % of reviews NOT rated "Again". This is
 // deliberately all-time, not a recent window: it's the headline "is this
 // actually working" number, and the 7-day chart already covers the trend.
 export async function getRetentionRate() {
-  const logs = await fetchReviewLogsSince(null)
-  if (logs.length === 0) return null
-  const successful = logs.filter((l) => l.rating !== Rating.Again).length
-  return Math.round((successful / logs.length) * 100)
+  const userId = await requireUserId()
+  const [total, successful] = await Promise.all([
+    countLogs(userId),
+    countLogs(userId, { notRating: Rating.Again }),
+  ])
+  if (total === 0) return null
+  return Math.round((successful / total) * 100)
 }
 
+// Reviews in the last 7 calendar days (today included), same window as the
+// weekly charts so the numbers agree.
 export async function getCardsReviewedThisWeek() {
-  const logs = await fetchReviewLogsSince(new Date(Date.now() - 7 * MS_PER_DAY))
-  return logs.length
+  const userId = await requireUserId()
+  return countLogs(userId, { sinceDate: lastNDays(7)[0] })
 }
 
 // Simple average of live per-subject mastery (see subjectsStore) — subjects
@@ -134,16 +151,15 @@ export async function getStudyTimeTrend() {
 const RATING_LABELS = { [Rating.Again]: 'Again', [Rating.Hard]: 'Hard', [Rating.Good]: 'Good', [Rating.Easy]: 'Easy' }
 
 export async function getRatingDistribution() {
-  const logs = await fetchReviewLogsSince(null)
-  if (logs.length === 0) return null
-
-  const counts = { [Rating.Again]: 0, [Rating.Hard]: 0, [Rating.Good]: 0, [Rating.Easy]: 0 }
-  for (const log of logs) counts[log.rating] = (counts[log.rating] ?? 0) + 1
-
-  return Object.entries(counts).map(([rating, count]) => ({
+  const userId = await requireUserId()
+  const ratings = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy]
+  const counts = await Promise.all(ratings.map((rating) => countLogs(userId, { rating })))
+  const total = counts.reduce((a, b) => a + b, 0)
+  if (total === 0) return null
+  return ratings.map((rating, i) => ({
     label: RATING_LABELS[rating],
-    count,
-    percent: Math.round((count / logs.length) * 100),
+    count: counts[i],
+    percent: Math.round((counts[i] / total) * 100),
   }))
 }
 

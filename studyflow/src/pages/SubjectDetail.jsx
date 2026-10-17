@@ -122,7 +122,7 @@ export default function SubjectDetail() {
             type="button"
             onClick={() => setDeleteSubjectOpen(true)}
             aria-label={`Delete subject: ${subject.name}`}
-            className="p-2.5 rounded-md text-neutral-400 hover:bg-danger-light hover:text-danger border border-neutral-200"
+            className="p-2.5 rounded-md text-neutral-400 hover:bg-danger-light hover:text-danger-text border border-neutral-200"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -201,4 +201,4 @@ export default function SubjectDetail() {
       </Modal>
     </div>
   )
-}
+}

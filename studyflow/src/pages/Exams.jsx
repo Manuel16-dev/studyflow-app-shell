@@ -9,9 +9,9 @@ import { getExams, createExam } from '../lib/examsStore'
 import { getSubjects } from '../lib/subjectsStore'
 
 function readinessColor(readiness) {
-  if (readiness >= 75) return 'text-secondary'
-  if (readiness >= 55) return 'text-accent'
-  return 'text-danger'
+  if (readiness >= 75) return 'text-secondary-text'
+  if (readiness >= 55) return 'text-accent-text'
+  return 'text-danger-text'
 }
 
 export default function Exams() {

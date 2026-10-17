@@ -5,7 +5,7 @@ export default function CardListItem({ card, onEdit, onDelete, subjectLabel }) {
     <div className="flex items-start justify-between gap-4 bg-surface border border-neutral-200 rounded-lg p-4">
       <div className="min-w-0 flex-1">
         {subjectLabel && (
-          <p className="text-xs font-medium text-primary mb-1 truncate">{subjectLabel}</p>
+          <p className="text-xs font-medium text-primary-text mb-1 truncate">{subjectLabel}</p>
         )}
         <p className="text-sm font-medium text-neutral-900 truncate">{card.front}</p>
         <p className="text-sm text-neutral-500 mt-1 line-clamp-2">{card.back}</p>
@@ -23,7 +23,7 @@ export default function CardListItem({ card, onEdit, onDelete, subjectLabel }) {
           type="button"
           onClick={() => onDelete(card)}
           aria-label={`Delete card: ${card.front}`}
-          className="p-2 rounded-md text-neutral-500 hover:bg-danger-light hover:text-danger"
+          className="p-2 rounded-md text-neutral-500 hover:bg-danger-light hover:text-danger-text"
         >
           <Trash2 className="w-4 h-4" />
         </button>

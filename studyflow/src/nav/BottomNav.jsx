@@ -18,7 +18,7 @@ export default function BottomNav({ reviewDueCount }) {
               className={({ isActive }) =>
                 [
                   'relative flex flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium min-h-[52px]',
-                  isActive ? 'text-primary' : 'text-neutral-500',
+                  isActive ? 'text-primary-text' : 'text-neutral-500',
                 ].join(' ')
               }
             >

@@ -112,7 +112,7 @@ export default function ExamDetail() {
       {cards.length > 0 && (
         <Card title="Preparation recommendation">
           <div className="flex items-start gap-2 text-sm text-neutral-700">
-            <Lightbulb className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+            <Lightbulb className="w-4 h-4 text-accent-text shrink-0 mt-0.5" />
             {weakCount === 0
               ? 'No cards below 55% recall right now — keep up regular review to hold that.'
               : `${weakCount} card${weakCount === 1 ? ' is' : 's are'} below 55% recall. Review those first — they carry the most exam risk.`}

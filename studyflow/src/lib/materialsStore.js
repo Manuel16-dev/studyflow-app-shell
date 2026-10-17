@@ -46,6 +46,39 @@ export async function getMaterialsWithCoverage(subjectId) {
   })
 }
 
+// Every material across all subjects with coverage summary, newest first —
+// powers the Library page. Same row shape as getMaterialsWithCoverage plus
+// subjectId, so one mapper serves both.
+export async function getAllMaterialsWithCoverage() {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, created_at, storage_path, subject_id, material_chunks(covered)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  // Cards created from each material. Separate, optional query: if it fails
+  // the Library still loads, just without the per-material card counts.
+  const cardCounts = {}
+  const { data: cardRows } = await supabase.from('cards').select('material_id').not('material_id', 'is', null)
+  for (const row of cardRows ?? []) cardCounts[row.material_id] = (cardCounts[row.material_id] ?? 0) + 1
+
+  return data.map((m) => {
+    const chunks = m.material_chunks ?? []
+    const covered = chunks.filter((c) => c.covered).length
+    return {
+      id: m.id,
+      name: m.name,
+      subjectId: m.subject_id,
+      cardCount: cardCounts[m.id] ?? 0,
+      createdAt: m.created_at,
+      storagePath: m.storage_path,
+      totalChunks: chunks.length,
+      coveredChunks: covered,
+      fullyCovered: chunks.length > 0 && covered === chunks.length,
+    }
+  })
+}
+
 // Deletes a material and its chunks (DB cascade handles material_chunks),
 // plus the uploaded file in storage — cascade doesn't reach storage, so
 // skipping this step would leave orphaned files behind on every delete.
@@ -85,4 +118,4 @@ export async function getMaterialText(materialId) {
     .single()
   if (error) throw error
   return { materialName: data.name, text: data.extracted_text }
-}
+}

@@ -14,6 +14,9 @@ import { getExams } from '../lib/examsStore'
 import { getEstimatedReviewMinutes, getRecentActivity } from '../lib/activityStore'
 import { getTodaysPlanBlocks } from '../lib/planBlocksStore'
 import { getProfile } from '../lib/profileStore'
+import { getXpSummary, syncAchievements } from '../lib/xpStore'
+import LevelCard from '../components/gamification/LevelCard'
+import { AchievementBanner } from '../components/gamification/Achievements'
 
 const activityIcons = {
   review: CheckCircle2,
@@ -100,6 +103,19 @@ export default function Dashboard() {
   // mockPlanBlocks. null = still loading.
   const [todaysPlan, setTodaysPlan] = useState(null)
 
+  // XP/level (derived server-side, see xpStore) and newly unlocked
+  // achievements. xpSummary: null = loading, false = failed (card hidden).
+  const [xpSummary, setXpSummary] = useState(null)
+  const [newAchievements, setNewAchievements] = useState([])
+
+  useEffect(() => {
+    // Unlock first so any achievement XP is already in the total we then read.
+    syncAchievements()
+      .then(({ newlyUnlocked }) => setNewAchievements(newlyUnlocked))
+      .catch(() => {})
+      .then(() => getXpSummary().then(setXpSummary).catch(() => setXpSummary(false)))
+  }, [])
+
   useEffect(() => {
     getDueCount().then((count) => {
       setReviewsDue(count)
@@ -170,11 +186,14 @@ export default function Dashboard() {
           <p className="text-xs text-neutral-500">Streak</p>
           <p className="text-2xl font-semibold text-neutral-900 mt-1 flex items-center gap-1">
             {streakDays ?? "—"}
-            <Flame className="w-4 h-4 text-accent" />
+            <Flame className="w-4 h-4 text-accent-text" />
           </p>
           <p className="text-xs text-neutral-400 mt-2">days</p>
         </Card>
       </div>
+
+      <AchievementBanner unlocked={newAchievements} onDismiss={() => setNewAchievements([])} />
+      {xpSummary !== false && <LevelCard summary={xpSummary} />}
 
       {/* Continue Review / Needs Attention / Upcoming Exams */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -199,7 +218,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate('/subjects')}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-primary-text hover:underline"
             >
               View all
             </button>
@@ -227,7 +246,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate('/exams')}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-primary-text hover:underline"
             >
               View all
             </button>
@@ -261,7 +280,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate('/calendar')}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-primary-text hover:underline"
             >
               View full plan
             </button>
@@ -270,7 +289,7 @@ export default function Dashboard() {
           {todaysPlan == null ? (
             <p className="text-sm text-neutral-400">Loading&hellip;</p>
           ) : todaysPlan.length === 0 ? (
-            <p className="text-sm text-neutral-400">Nothing scheduled today. <button type="button" onClick={() => navigate('/calendar')} className="text-primary hover:underline">Add a block</button>.</p>
+            <p className="text-sm text-neutral-400">Nothing scheduled today. <button type="button" onClick={() => navigate('/calendar')} className="text-primary-text hover:underline">Add a block</button>.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {todaysPlan.map((item) => (
@@ -290,7 +309,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate('/progress')}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-medium text-primary-text hover:underline"
             >
               View all activity
             </button>
@@ -306,7 +325,7 @@ export default function Dashboard() {
                 const Icon = activityIcons[item.kind]
                 return (
                   <li key={i} className="flex items-center gap-3">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary shrink-0">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary-text shrink-0">
                       <Icon className="w-3.5 h-3.5" />
                     </span>
                     <span className="text-sm text-neutral-900 flex-1 truncate">{item.text}</span>
@@ -320,4 +339,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-}
+}

@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/AuthContext'
 const OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
   { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'system', label: 'System', Icon: Monitor },
 ]
 
 const CurrentIcon = { light: Sun, dark: Moon, system: Monitor }
@@ -56,7 +57,7 @@ export default function ThemeSwitcher() {
                 'flex items-center justify-center w-8 h-8 rounded-md transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-primary',
                 theme === value
-                  ? 'bg-primary-light text-primary'
+                  ? 'bg-primary-light text-primary-text'
                   : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700',
               ].join(' ')}
             >

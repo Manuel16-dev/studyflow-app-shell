@@ -1,10 +1,10 @@
 import { Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react'
 
 const variants = {
-  info: { classes: 'bg-primary-light text-primary', Icon: Info },
-  mastered: { classes: 'bg-secondary-light text-secondary', Icon: CheckCircle2 },
-  attention: { classes: 'bg-accent-light text-accent', Icon: AlertTriangle },
-  weak: { classes: 'bg-danger-light text-danger', Icon: AlertCircle },
+  info: { classes: 'bg-primary-light text-primary-text', Icon: Info },
+  mastered: { classes: 'bg-secondary-light text-secondary-text', Icon: CheckCircle2 },
+  attention: { classes: 'bg-accent-light text-accent-text', Icon: AlertTriangle },
+  weak: { classes: 'bg-danger-light text-danger-text', Icon: AlertCircle },
 }
 
 export default function Badge({ variant = 'info', children }) {

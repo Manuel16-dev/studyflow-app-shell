@@ -111,7 +111,7 @@ export default function Subjects() {
               className={[
                 'px-3 py-2 rounded-md text-sm font-medium border transition-colors whitespace-nowrap',
                 activeFilter === f.id
-                  ? 'bg-primary-light text-primary border-primary'
+                  ? 'bg-primary-light text-primary-text border-primary'
                   : 'bg-surface text-neutral-700 border-neutral-300 hover:bg-neutral-50',
               ].join(' ')}
             >

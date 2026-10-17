@@ -19,6 +19,72 @@ import { uploadMaterialFile, getMaterialsWithCoverage, getMaterialText, markChun
 // Pipeline (PRD 12.4 + 20-22): the file is picked and its text extracted
 // client-side (materialText.js), then the text goes to the generate-cards
 // Edge Function which does chunked, schema-validated LLM generation.
+const KIND_OPTIONS = [
+  { value: 'flashcard', label: 'Flashcards', hint: 'Short question and answer' },
+  { value: 'practice', label: 'Practice questions', hint: 'Exam-style, with a worked answer' },
+]
+const COUNT_MIN = 4
+const COUNT_MAX = 24
+
+// Card style + how many to generate. Shown above the source picker so the
+// choice applies to both a new upload and "generate more".
+function GenerationOptions({ kind, setKind, count, setCount }) {
+  return (
+    <div className="text-left mb-6 border border-neutral-200 rounded-lg p-3 bg-surface">
+      <div role="radiogroup" aria-label="Card style" className="grid grid-cols-2 gap-2">
+        {KIND_OPTIONS.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={kind === o.value}
+            onClick={() => setKind(o.value)}
+            className={[
+              'rounded-md border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary',
+              kind === o.value
+                ? 'border-primary bg-primary-light'
+                : 'border-neutral-300 hover:bg-neutral-50',
+            ].join(' ')}
+          >
+            <span className={`block text-sm font-medium ${kind === o.value ? 'text-primary-text' : 'text-neutral-800'}`}>
+              {o.label}
+            </span>
+            <span className="block text-xs text-neutral-500 mt-0.5">{o.hint}</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <span id="gen-count-label" className="text-sm text-neutral-700">
+          How many
+        </span>
+        <div className="flex items-center gap-2" role="group" aria-labelledby="gen-count-label">
+          <button
+            type="button"
+            onClick={() => setCount((c) => Math.max(COUNT_MIN, c - 2))}
+            disabled={count <= COUNT_MIN}
+            aria-label="Fewer"
+            className="w-8 h-8 rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-300 disabled:cursor-not-allowed"
+          >
+            −
+          </button>
+          <span className="w-8 text-center text-sm font-semibold text-neutral-900 tabular-nums" aria-live="polite">
+            {count}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCount((c) => Math.min(COUNT_MAX, c + 2))}
+            disabled={count >= COUNT_MAX}
+            aria-label="More"
+            className="w-8 h-8 rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-300 disabled:cursor-not-allowed"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function GenerateCards() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -40,6 +106,10 @@ export default function GenerateCards() {
   const [deletingMaterial, setDeletingMaterial] = useState(false)
   const [genMaterialId, setGenMaterialId] = useState(null) // materialId returned by this generation pass, for coverage on approve
   const [genSource, setGenSource] = useState(null) // { materialName, text } actually used for this generation — set for both upload and existing-material paths, since regenerate needs it and `material` is only populated on upload
+
+  // Generation options, chosen on the source step: card style and how many.
+  const [kind, setKind] = useState('flashcard') // 'flashcard' | 'practice'
+  const [count, setCount] = useState(12) // server accepts 4 to 24
 
   const [candidates, setCandidates] = useState([])
   const [selected, setSelected] = useState(new Set())
@@ -136,6 +206,8 @@ export default function GenerateCards() {
         subjectId: id,
         materialName,
         text,
+        count,
+        kind,
         materialId,
         storagePath,
       })
@@ -194,13 +266,13 @@ export default function GenerateCards() {
         subjectId: id,
         materialName: genSource.materialName,
         text: genSource.text,
-        card: { front: card.front, back: card.back, sourceRef: card.sourceRef },
+        card: { front: card.front, back: card.back, sourceRef: card.sourceRef, kind: card.kind },
       })
       if (cards.length === 0) throw new Error('empty')
       // Regenerate doesn't go through the chunked path, so it doesn't know
       // which chunk it came from — carry over the original card's so
       // approving the replacement still counts toward that chunk's coverage.
-      const replacement = { ...cards[0], chunkIndex: card.chunkIndex }
+      const replacement = { ...cards[0], chunkIndex: card.chunkIndex, kind: card.kind ?? cards[0].kind }
       setCandidates((prev) => prev.map((c) => (c.id === card.id ? replacement : c)))
     } catch {
       setRegenError(card.id)
@@ -218,8 +290,15 @@ export default function GenerateCards() {
     // Writes straight into cardsStore — SubjectDetail reads from the same
     // store, so approved cards actually show up there on return.
     const approvedCandidates = candidates.filter((c) => selected.has(c.id))
-    const approved = approvedCandidates.map((c) => ({ id: nextCardId(), front: c.front, back: c.back }))
-    await addCards(id, approved)
+    const approved = approvedCandidates.map((c) => ({
+      id: nextCardId(),
+      front: c.front,
+      back: c.back,
+      sourceRef: c.sourceRef,
+      chunkIndex: c.chunkIndex,
+      kind: c.kind,
+    }))
+    await addCards(id, approved, { materialId: genMaterialId })
 
     // Coverage is approve-time, not generation-time (see comment in the
     // Edge Function) — only mark chunks whose cards actually made it into
@@ -260,9 +339,11 @@ export default function GenerateCards() {
       <div className="flex-1 flex items-center justify-center px-4 py-10">
         {step === 'source' && (
           <div className="w-full max-w-md text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary-light text-primary mx-auto mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary-light text-primary-text mx-auto mb-4">
               <FileText className="w-6 h-6" />
             </div>
+
+            <GenerationOptions kind={kind} setKind={setKind} count={count} setCount={setCount} />
 
             {!file ? (
               <>
@@ -297,7 +378,7 @@ export default function GenerateCards() {
                             type="button"
                             onClick={() => setPendingDeleteMaterial(m)}
                             aria-label={`Delete material: ${m.name}`}
-                            className="p-1.5 rounded-md text-neutral-400 hover:bg-danger-light hover:text-danger shrink-0"
+                            className="p-1.5 rounded-md text-neutral-400 hover:bg-danger-light hover:text-danger-text shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -335,7 +416,7 @@ export default function GenerateCards() {
                 <button
                   type="button"
                   onClick={removeFile}
-                  className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-danger mb-4"
+                  className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-danger-text mb-4"
                 >
                   <X className="w-4 h-4" />
                   Remove file
@@ -373,7 +454,7 @@ export default function GenerateCards() {
 
         {step === 'error' && (
           <div className="w-full max-w-md text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-danger-light text-danger mx-auto mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-danger-light text-danger-text mx-auto mb-4">
               <AlertCircle className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">
@@ -400,7 +481,7 @@ export default function GenerateCards() {
 
         {step === 'fully-covered' && (
           <div className="w-full max-w-md text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary mx-auto mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary-text mx-auto mb-4">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">All caught up on this material</h1>
@@ -431,7 +512,7 @@ export default function GenerateCards() {
                 <button
                   type="button"
                   onClick={toggleAll}
-                  className="text-sm font-medium text-primary hover:underline shrink-0"
+                  className="text-sm font-medium text-primary-text hover:underline shrink-0"
                 >
                   {selected.size === candidates.length ? 'Deselect all' : 'Select all'}
                 </button>
@@ -460,7 +541,7 @@ export default function GenerateCards() {
                         <span className="inline-block text-xs text-neutral-400 mt-2">Source: {card.sourceRef}</span>
 
                         {regenError === card.id && (
-                          <p className="text-sm text-danger mt-2">
+                          <p className="text-sm text-danger-text mt-2">
                             Regeneration failed. <button type="button" onClick={() => regenerate(card)} className="underline font-medium">Retry</button>
                           </p>
                         )}
@@ -486,7 +567,7 @@ export default function GenerateCards() {
                           type="button"
                           onClick={() => discard(card.id)}
                           aria-label={`Discard card: ${card.front}`}
-                          className="p-2 rounded-md text-neutral-500 hover:bg-danger-light hover:text-danger"
+                          className="p-2 rounded-md text-neutral-500 hover:bg-danger-light hover:text-danger-text"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -510,7 +591,7 @@ export default function GenerateCards() {
 
         {step === 'done' && (
           <div className="w-full max-w-sm text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary mx-auto mb-4">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary-text mx-auto mb-4">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">{selected.size} cards added</h1>
@@ -553,4 +634,4 @@ export default function GenerateCards() {
       </Modal>
     </div>
   )
-}
+}

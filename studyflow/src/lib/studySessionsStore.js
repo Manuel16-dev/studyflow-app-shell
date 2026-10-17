@@ -4,20 +4,12 @@
 // Dashboard — both are real wall-clock signals, not derived from card counts.
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
-
-const MS_PER_DAY = 86400000
-
-// Local (client) calendar-day key, e.g. "2026-08-22" — streaks are measured
-// in the student's own day, not UTC, so studying late at night doesn't
-// silently land on "tomorrow".
-function dayKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+import { dayKey, startOfDay, addDays } from './dates'
 
 // Call once when a review session ends, with when it started and how long
 // it ran. Skips zero-length sessions (e.g. the student opened Review and
 // left immediately) so they don't pad study time or falsely extend a streak.
-export async function logStudySession(startedAt, durationSeconds) {
+async function writeStudySession(startedAt, durationSeconds) {
   if (durationSeconds <= 0) return
   const userId = await requireUserId()
   const { error } = await supabase.from('study_sessions').insert({
@@ -28,10 +20,23 @@ export async function logStudySession(startedAt, durationSeconds) {
   if (error) throw error
 }
 
+// Review.jsx logs its session on unmount (fire and forget), and the
+// Dashboard mounts right after. Streak achievements read study_sessions, so
+// they must wait for that in-flight write or they'd miss today's session.
+let pendingLog = Promise.resolve()
+export function whenSessionLogged() {
+  return pendingLog
+}
+
+export function logStudySession(startedAt, durationSeconds) {
+  const p = writeStudySession(startedAt, durationSeconds)
+  pendingLog = p.catch(() => {})
+  return p
+}
+
 export async function getStudyTimeTodayMinutes() {
   const userId = await requireUserId()
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
+  const startOfToday = startOfDay()
   const { data, error } = await supabase
     .from('study_sessions')
     .select('duration_seconds')
@@ -70,16 +75,18 @@ export async function getStreakDays() {
   const studiedDays = new Set(data.map((row) => dayKey(new Date(row.started_at))))
   if (studiedDays.size === 0) return 0
 
-  let cursor = new Date()
+  // Step by calendar day (not 24h) so a daylight saving change can't make
+  // the cursor land on the same day twice or skip one.
+  let cursor = startOfDay()
   if (!studiedDays.has(dayKey(cursor))) {
-    cursor = new Date(cursor.getTime() - MS_PER_DAY)
+    cursor = addDays(cursor, -1)
     if (!studiedDays.has(dayKey(cursor))) return 0
   }
 
   let streak = 0
   while (studiedDays.has(dayKey(cursor))) {
     streak += 1
-    cursor = new Date(cursor.getTime() - MS_PER_DAY)
+    cursor = addDays(cursor, -1)
   }
   return streak
 }

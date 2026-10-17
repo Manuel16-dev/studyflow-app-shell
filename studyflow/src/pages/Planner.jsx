@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, Sparkles, Clock, GraduationCap, Plus, Trash2 } from 'lucide-react'
 import Card from '../components/ui/Card'
@@ -14,14 +14,9 @@ import {
 import { getSubjects } from '../lib/subjectsStore'
 import { getExams } from '../lib/examsStore'
 import { getSubjectColor } from '../lib/subjectColor'
+import { todayKey, dayKey, addDays } from '../lib/dates'
 
 const WEEKDAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-function todayDateStr() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString().slice(0, 10)
-}
 
 function toDateStr(year, month, day) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -49,10 +44,8 @@ function buildMonthGrid(year, month) {
 }
 
 function agendaLabel(dateStr) {
-  const today = todayDateStr()
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10)
+  const today = todayKey()
+  const tomorrowStr = dayKey(addDays(new Date(), 1))
   if (dateStr === today) return 'Today'
   if (dateStr === tomorrowStr) return 'Tomorrow'
   const d = new Date(`${dateStr}T00:00:00`)
@@ -75,14 +68,22 @@ export default function Planner() {
   const [editingBlock, setEditingBlock] = useState(null)
   const [addingForDate, setAddingForDate] = useState(null) // dateStr | null
   const [rebalanceMsg, setRebalanceMsg] = useState('')
+  const [confirmRebalance, setConfirmRebalance] = useState(false)
+  const [rebalancing, setRebalancing] = useState(false)
 
   const year = monthCursor.getFullYear()
   const month = monthCursor.getMonth()
-  const today = todayDateStr()
+  const today = todayKey()
   const isCurrentMonthView = year === new Date().getFullYear() && month === new Date().getMonth()
 
+  // Monotonic id so a slow response for a month you've already left can't
+  // overwrite the month you're now looking at.
+  const loadSeq = useRef(0)
   function loadBlocks() {
-    getPlanBlocksForMonth(year, month).then(setBlocks)
+    const seq = ++loadSeq.current
+    getPlanBlocksForMonth(year, month).then((rows) => {
+      if (seq === loadSeq.current) setBlocks(rows)
+    })
   }
 
   useEffect(() => {
@@ -170,20 +171,29 @@ export default function Planner() {
       })
       .map((b, i) => {
         const targetOffset = Math.min(b.dayOffset, i)
-        const d = new Date()
-        d.setHours(0, 0, 0, 0)
-        d.setDate(d.getDate() + targetOffset)
-        return { ...b, blockDate: d.toISOString().slice(0, 10) }
+        return { ...b, blockDate: dayKey(addDays(new Date(), targetOffset)) }
       })
 
     const changed = reordered.filter((b) => {
       const original = nearTerm.find((orig) => orig.id === b.id)
       return original.blockDate !== b.blockDate
     })
-    await Promise.all(changed.map((b) => updatePlanBlock(b.id, { blockDate: b.blockDate, time: b.time })))
-    loadBlocks()
-    setRebalanceMsg('Workload rebalanced around your weakest topics and nearest deadlines.')
-    setTimeout(() => setRebalanceMsg(''), 4000)
+    setRebalancing(true)
+    try {
+      await Promise.all(changed.map((b) => updatePlanBlock(b.id, { blockDate: b.blockDate, time: b.time })))
+      loadBlocks()
+      setRebalanceMsg(
+        changed.length === 0
+          ? 'Nothing to move: your next 5 days are already in this order.'
+          : `Moved ${changed.length} block${changed.length === 1 ? '' : 's'} earlier.`
+      )
+    } catch {
+      setRebalanceMsg('Could not move your blocks. Please try again.')
+    } finally {
+      setRebalancing(false)
+      setConfirmRebalance(false)
+      setTimeout(() => setRebalanceMsg(''), 4000)
+    }
   }
 
   function BlockCard({ block }) {
@@ -218,7 +228,7 @@ export default function Planner() {
         {hasStarted && (
           <div className="flex gap-2">
             {isCurrentMonthView && (
-              <Button variant="secondary" onClick={handleRebalance}>
+              <Button variant="secondary" onClick={() => setConfirmRebalance(true)}>
                 <Sparkles className="w-4 h-4" />
                 Rebalance workload
               </Button>
@@ -232,7 +242,7 @@ export default function Planner() {
       </div>
 
       {rebalanceMsg && (
-        <div className="bg-secondary-light text-secondary text-sm rounded-md px-4 py-2.5">{rebalanceMsg}</div>
+        <div className="bg-secondary-light text-secondary-text text-sm rounded-md px-4 py-2.5">{rebalanceMsg}</div>
       )}
 
       {hasStarted === false && (
@@ -327,7 +337,7 @@ export default function Planner() {
                   <p className="text-sm font-semibold text-neutral-900 mb-2">{agendaLabel(dateStr)}</p>
                   <div className="flex flex-col gap-2">
                     {dayExams.map((exam) => (
-                      <div key={exam.id} className="flex items-center gap-1.5 bg-danger-light text-danger text-xs font-medium rounded-md px-3 py-2">
+                      <div key={exam.id} className="flex items-center gap-1.5 bg-danger-light text-danger-text text-xs font-medium rounded-md px-3 py-2">
                         <GraduationCap className="w-3.5 h-3.5 shrink-0" />
                         {exam.name} due
                       </div>
@@ -344,6 +354,23 @@ export default function Planner() {
           </div>
         </>
       )}
+
+      <Modal open={confirmRebalance} onClose={() => setConfirmRebalance(false)} title="Rebalance workload?">
+        <p className="text-sm text-neutral-700">
+          This is a simple shortcut, not smart scheduling yet. It looks at your blocks in the next 5
+          days, puts blocks with "weak" in the title first, and moves later blocks to earlier days to
+          fill the gaps. It does not use your actual mastery or exam dates, and it changes the dates
+          of your saved blocks.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="secondary" onClick={() => setConfirmRebalance(false)} disabled={rebalancing}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleRebalance} disabled={rebalancing}>
+            {rebalancing ? 'Moving…' : 'Move blocks'}
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={!!editingBlock} onClose={() => setEditingBlock(null)} title="Edit block">
         {editingBlock && (
@@ -409,14 +436,14 @@ function RescheduleForm({ block, onSave, onDelete, onCancel, onOpenSubject }) {
         <button
           type="button"
           onClick={onDelete}
-          className="p-2 -ml-2 rounded-md text-neutral-400 hover:text-danger hover:bg-danger-light"
+          className="p-2 -ml-2 rounded-md text-neutral-400 hover:text-danger-text hover:bg-danger-light"
           aria-label="Delete block"
         >
           <Trash2 className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-3">
           {subject && (
-            <button type="button" onClick={() => onOpenSubject(block.subjectId)} className="text-sm font-medium text-primary hover:underline">
+            <button type="button" onClick={() => onOpenSubject(block.subjectId)} className="text-sm font-medium text-primary-text hover:underline">
               View subject
             </button>
           )}
@@ -485,7 +512,7 @@ function AddBlockForm({ subjects, defaultDate, onSave, onCancel }) {
       />
       <TextField id="add-block-time" label="Time" value={time} onChange={(e) => setTime(e.target.value)} placeholder="e.g. 4:30 PM" />
       <TextField id="add-block-duration" label="Duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g. 20 min" />
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-danger-text">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>

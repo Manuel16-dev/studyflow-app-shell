@@ -11,6 +11,9 @@ import { getStreakDays, getTotalStudyMinutes } from '../lib/studySessionsStore'
 import { getSubjects } from '../lib/subjectsStore'
 import { getCardCounts } from '../lib/cardsStore'
 import { getOverallMastery, getRetentionRate } from '../lib/progressStore'
+import { getXpSummary, syncAchievements } from '../lib/xpStore'
+import LevelCard from '../components/gamification/LevelCard'
+import AchievementList from '../components/gamification/Achievements'
 
 const studyForOptions = ['University', 'High school', 'Certification', 'Self-study']
 
@@ -31,7 +34,7 @@ function formatMinutes(mins) {
 function StatTile({ icon: Icon, label, value }) {
   return (
     <div className="flex flex-col items-center gap-1 py-3 px-2 rounded-md bg-neutral-50">
-      <Icon className="w-4 h-4 text-primary" />
+      <Icon className="w-4 h-4 text-primary-text" />
       <span className="text-lg font-semibold text-neutral-900 leading-none">{value}</span>
       <span className="text-[11px] text-neutral-500 text-center leading-tight">{label}</span>
     </div>
@@ -49,6 +52,22 @@ export default function Profile() {
   const [studyForDraft, setStudyForDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  // null = loading, false = failed (sections hidden)
+  const [xpSummary, setXpSummary] = useState(null)
+  const [achievements, setAchievements] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    syncAchievements()
+      .then(({ items }) => !cancelled && setAchievements(items))
+      .catch(() => !cancelled && setAchievements(false))
+      .then(() => getXpSummary())
+      .then((s) => !cancelled && setXpSummary(s))
+      .catch(() => !cancelled && setXpSummary(false))
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -110,7 +129,7 @@ export default function Profile() {
 
       <Card>
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary-light text-primary flex items-center justify-center text-xl font-semibold shrink-0">
+          <div className="w-16 h-16 rounded-full bg-primary-light text-primary-text flex items-center justify-center text-xl font-semibold shrink-0">
             {initials(displayName, user?.email)}
           </div>
           <div className="flex-1 min-w-0">
@@ -138,6 +157,8 @@ export default function Profile() {
         </div>
       </Card>
 
+      {xpSummary !== false && <LevelCard summary={xpSummary} />}
+
       <Card title="Your stats">
         {loading ? (
           <p className="text-sm text-neutral-500">Loading…</p>
@@ -161,6 +182,12 @@ export default function Profile() {
         )}
       </Card>
 
+      {achievements && (
+        <Card title={`Achievements · ${achievements.filter((a) => a.unlockedAt).length}/${achievements.length}`}>
+          <AchievementList items={achievements} />
+        </Card>
+      )}
+
       {!loading && subjects.length > 0 && (
         <Card title="Subjects">
           <div className="flex flex-col divide-y divide-neutral-100">
@@ -178,7 +205,7 @@ export default function Profile() {
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit profile">
         {saveError && (
-          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
+          <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
             {saveError}
           </p>
         )}
@@ -202,7 +229,7 @@ export default function Profile() {
                     'rounded-md border px-3 py-2 text-sm font-medium transition-colors text-left',
                     'focus-visible:outline-2 focus-visible:outline-primary',
                     studyForDraft === opt
-                      ? 'border-primary bg-primary-light text-primary'
+                      ? 'border-primary bg-primary-light text-primary-text'
                       : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50',
                   ].join(' ')}
                 >

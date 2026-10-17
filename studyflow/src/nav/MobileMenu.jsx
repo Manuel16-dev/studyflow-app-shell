@@ -46,7 +46,7 @@ export default function MobileMenu({ open, onClose, reviewDueCount, streakDays }
                 [
                   'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium',
                   isActive
-                    ? 'bg-primary-light text-primary'
+                    ? 'bg-primary-light text-primary-text'
                     : 'text-neutral-700 hover:bg-neutral-100',
                 ].join(' ')
               }
@@ -68,7 +68,7 @@ export default function MobileMenu({ open, onClose, reviewDueCount, streakDays }
 
         <div className="px-5 py-4 border-t border-neutral-200">
           <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-            <Flame className="w-4 h-4 text-accent" />
+            <Flame className="w-4 h-4 text-accent-text" />
             <span>{streakDays ?? '—'} day streak</span>
           </div>
         </div>

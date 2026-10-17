@@ -67,7 +67,7 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
                 </option>
               ))}
             </select>
-            {errors.subject && <p className="text-sm text-danger">{errors.subject}</p>}
+            {errors.subject && <p className="text-sm text-danger-text">{errors.subject}</p>}
           </div>
         )}
 
@@ -91,7 +91,7 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
             placeholder="e.g. What is a binary search tree?"
           />
           {errors.front && (
-            <p id="card-front-error" className="text-sm text-danger">
+            <p id="card-front-error" className="text-sm text-danger-text">
               {errors.front}
             </p>
           )}
@@ -117,7 +117,7 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
             placeholder="e.g. A binary tree where each node's left subtree..."
           />
           {errors.back && (
-            <p id="card-back-error" className="text-sm text-danger">
+            <p id="card-back-error" className="text-sm text-danger-text">
               {errors.back}
             </p>
           )}

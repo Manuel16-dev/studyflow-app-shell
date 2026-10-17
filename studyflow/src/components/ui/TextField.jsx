@@ -38,7 +38,7 @@ export default function TextField({ id, label, error, type = 'text', ...props })
         )}
       </div>
       {error && (
-        <p id={errorId} className="text-sm text-danger">
+        <p id={errorId} className="text-sm text-danger-text">
           {error}
         </p>
       )}

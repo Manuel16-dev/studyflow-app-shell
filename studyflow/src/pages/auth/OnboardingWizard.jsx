@@ -61,7 +61,7 @@ export default function OnboardingWizard() {
                   className={[
                     'px-4 py-2 rounded-full text-sm font-medium border transition-colors',
                     studyFor === option
-                      ? 'bg-primary-light text-primary border-primary'
+                      ? 'bg-primary-light text-primary-text border-primary'
                       : 'bg-surface text-neutral-700 border-neutral-300 hover:bg-neutral-50',
                   ].join(' ')}
                 >

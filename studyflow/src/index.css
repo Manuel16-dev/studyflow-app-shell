@@ -2,32 +2,40 @@
 
 @theme {
   /* Colors — sampled from StudyFlow UI/UX Design Specification v1, Design System panel */
+  /* Split tokens: --color-X is the FILL (white text on it passes 4.5:1);
+     --color-X-text is for coloured TEXT/ICONS on surfaces and *-light chips. */
   --color-primary: #5366DC;
+  --color-primary-text: #4F62DB;
   --color-primary-dark: #4351B8;
   --color-primary-light: #EEF0FD;
 
-  --color-secondary: #28B08A;
+  --color-secondary: #1E8468;
+  --color-secondary-text: #1D7E63;
   --color-secondary-light: #E7F8F3;
 
-  --color-accent: #F59620;
+  --color-accent: #AF6408;
+  --color-accent-text: #A55F07;
   --color-accent-light: #FEF3E3;
 
-  --color-danger: #E54239;
+  --color-danger: #E22C22;
+  --color-danger-text: #D0251B;
   --color-danger-light: #FCEAE9;
 
   /* Two extra semantic slots, same pattern as primary/secondary/accent/danger
      above — added to fix two spots that were using raw un-themed Tailwind
      literals (blue-*, violet-*) instead of a token, which meant they didn't
      adapt in dark mode. */
-  --color-info: #3B82F6;
+  --color-info: #1E6FF5;
+  --color-info-text: #0F66F4;
   --color-info-light: #EFF6FF;
 
-  --color-violet: #8B5CF6;
+  --color-violet: #8655F6;
+  --color-violet-text: #7C46F5;
   --color-violet-light: #F3EEFE;
 
   --color-neutral-900: #14171F;
   --color-neutral-700: #3E495D;
-  --color-neutral-500: #6B7280;
+  --color-neutral-500: #626875;
   --color-neutral-300: #D1D5DB;
   --color-neutral-200: #E5E7EB;
   --color-neutral-100: #F3F4F6;
@@ -55,23 +63,29 @@
    this up automatically. Two surface tiers (page vs. card) since dark UIs
    need visible separation that light mode gets for free from shadows. */
 html.dark {
-  --color-primary: #6B74E0;
-  --color-primary-dark: #8F97F5;
+  --color-primary: #606ADE;
+  --color-primary-text: #848CE5;
+  --color-primary-dark: #4F59C9;
   --color-primary-light: #262A4A;
 
-  --color-secondary: #34C99E;
+  --color-secondary: #228468;
+  --color-secondary-text: #34C99E;
   --color-secondary-light: #16332B;
 
-  --color-accent: #F5A73D;
+  --color-accent: #AA6509;
+  --color-accent-text: #F5A73D;
   --color-accent-light: #3D2E14;
 
-  --color-danger: #F0645C;
+  --color-danger: #E82115;
+  --color-danger-text: #F0645C;
   --color-danger-light: #3D1F1D;
 
-  --color-info: #6BA0F5;
+  --color-info: #2170F0;
+  --color-info-text: #6BA0F5;
   --color-info-light: #182D4D;
 
-  --color-violet: #A78BFA;
+  --color-violet: #7E55F8;
+  --color-violet-text: #A78BFA;
   --color-violet-light: #2E2650;
 
   /* neutral-900 stays the "most contrast from background" role, so it

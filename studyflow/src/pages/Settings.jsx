@@ -66,7 +66,7 @@ function RemindersCard() {
         Set your own reminders for anything — these fire at the exact time you pick, regardless of quiet hours.
       </p>
       {error && (
-        <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">{error}</p>
+        <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">{error}</p>
       )}
       {!loading && reminders.length > 0 && (
         <div className="flex flex-col divide-y divide-neutral-100 mb-3">
@@ -85,7 +85,7 @@ function RemindersCard() {
                 type="button"
                 onClick={() => handleDelete(r.id)}
                 aria-label="Delete reminder"
-                className="p-1.5 rounded-md text-neutral-400 hover:text-danger hover:bg-danger-light shrink-0"
+                className="p-1.5 rounded-md text-neutral-400 hover:text-danger-text hover:bg-danger-light shrink-0"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -325,7 +325,7 @@ export default function Settings() {
           (evening ≈ 6–9pm, in your timezone above) — not the moment a card becomes due.
         </p>
 
-        <div className="flex items-start gap-2 bg-primary-light text-primary text-xs rounded-md px-3 py-2 mt-4">
+        <div className="flex items-start gap-2 bg-primary-light text-primary-text text-xs rounded-md px-3 py-2 mt-4">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
             Review difficulty sets the retention target the FSRS scheduler aims for — changing it reshapes the
@@ -339,7 +339,7 @@ export default function Settings() {
       {/* Notifications */}
       <Card title="Notifications">
         {pushError && (
-          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
+          <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
             {pushError}
           </p>
         )}
@@ -412,7 +412,7 @@ export default function Settings() {
                   'flex-1 capitalize rounded-md border px-3 py-2 text-sm font-medium transition-colors',
                   'focus-visible:outline-2 focus-visible:outline-primary',
                   theme === opt
-                    ? 'border-primary bg-primary-light text-primary'
+                    ? 'border-primary bg-primary-light text-primary-text'
                     : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50',
                 ].join(' ')}
               >
@@ -435,7 +435,7 @@ export default function Settings() {
                   'flex-1 capitalize rounded-md border px-3 py-2 text-sm font-medium transition-colors',
                   'focus-visible:outline-2 focus-visible:outline-primary',
                   appearance.textSize === opt
-                    ? 'border-primary bg-primary-light text-primary'
+                    ? 'border-primary bg-primary-light text-primary-text'
                     : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50',
                 ].join(' ')}
               >
@@ -465,7 +465,7 @@ export default function Settings() {
             className="flex items-center justify-between text-left text-sm text-neutral-700 hover:text-neutral-900 py-1"
           >
             <span>Change password</span>
-            <span className="text-primary text-sm font-medium">Edit</span>
+            <span className="text-primary-text text-sm font-medium">Edit</span>
           </button>
           <button
             type="button"
@@ -474,9 +474,9 @@ export default function Settings() {
             className="flex items-center justify-between text-left text-sm text-neutral-700 hover:text-neutral-900 py-1 disabled:opacity-50"
           >
             <span className="flex items-center gap-2"><Download className="w-4 h-4" /> Export my data</span>
-            <span className="text-primary text-sm font-medium">{exporting ? 'Preparing…' : 'Download'}</span>
+            <span className="text-primary-text text-sm font-medium">{exporting ? 'Preparing…' : 'Download'}</span>
           </button>
-          {exportError && <p className="text-xs text-danger">{exportError}</p>}
+          {exportError && <p className="text-xs text-danger-text">{exportError}</p>}
           <button
             type="button"
             onClick={async () => {
@@ -515,7 +515,7 @@ export default function Settings() {
           This permanently deletes all subjects, flashcards, review history and progress. This cannot be undone.
         </p>
         {deleteError && (
-          <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mt-3">
+          <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2 mt-3">
             {deleteError}
           </p>
         )}
@@ -560,11 +560,11 @@ export default function Settings() {
         title="Change password"
       >
         {passwordSuccess ? (
-          <p className="text-sm text-secondary">Password updated.</p>
+          <p className="text-sm text-secondary-text">Password updated.</p>
         ) : (
           <>
             {passwordError && (
-              <p className="text-sm text-danger bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
+              <p className="text-sm text-danger-text bg-danger-light border border-danger/20 rounded-md px-3 py-2 mb-3">
                 {passwordError}
               </p>
             )}

@@ -4,11 +4,10 @@
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
 import { getSubjectMastery } from './subjectsStore'
-
-const MS_PER_DAY = 86400000
+import { daysUntilKey } from './dates'
 
 function rowToExam(row, subjectName, readiness) {
-  const daysLeft = Math.max(0, Math.ceil((new Date(row.exam_date).getTime() - Date.now()) / MS_PER_DAY))
+  const daysLeft = Math.max(0, daysUntilKey(row.exam_date))
   return {
     id: row.id,
     name: row.name,
