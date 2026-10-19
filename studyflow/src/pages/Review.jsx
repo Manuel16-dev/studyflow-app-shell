@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { X, RotateCcw, TrendingDown, Check, Zap, PartyPopper } from 'lucide-react'
 import Button from '../components/ui/Button'
 import { Rating, schedule, previewIntervals, formatDue } from '../lib/fsrs'
 import { getCardState, saveCardState, logReview } from '../lib/reviewStore'
-import { getDueQueue } from '../lib/reviewQueue'
+import { getDueQueue, getPracticeQueue, PRACTICE_SOURCES } from '../lib/reviewQueue'
 import { getSettings } from '../lib/settingsStore'
 import { logStudySession } from '../lib/studySessionsStore'
 
@@ -17,6 +17,16 @@ const ratings = [
 
 export default function Review() {
   const navigate = useNavigate()
+  // /review?mode=practice&source=weak|practice|exam&subject=<id>&n=10 runs a
+  // practice drill instead of the due queue. Practice never changes a card's
+  // schedule or the review log; it only counts as study time.
+  const [params] = useSearchParams()
+  const isPractice = params.get('mode') === 'practice'
+  const practiceSource = PRACTICE_SOURCES.includes(params.get('source')) ? params.get('source') : 'weak'
+  const practiceSubject = params.get('subject') || null
+  const practiceLimit = Math.min(Math.max(Number(params.get('n')) || 10, 1), 50)
+  const exitPath = isPractice ? '/practice' : '/'
+
   const [queue, setQueue] = useState(null) // null = still loading
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -40,7 +50,10 @@ export default function Review() {
   }, [])
 
   useEffect(() => {
-    getDueQueue().then(setQueue)
+    const load = isPractice
+      ? getPracticeQueue({ source: practiceSource, subjectId: practiceSubject, limit: practiceLimit })
+      : getDueQueue()
+    load.then(setQueue).catch(() => setQueue([]))
     getSettings().then((s) => {
       if (s?.studyBehavior?.desiredRetention) setRequestRetention(s.studyBehavior.desiredRetention)
     })
@@ -51,9 +64,9 @@ export default function Review() {
   const done = queue !== null && index >= total
 
   useEffect(() => {
-    if (!current) return
+    if (!current || isPractice) return
     getCardState(current.id).then(setCurrentState)
-  }, [current])
+  }, [current, isPractice])
 
   // Predicted next-review time per rating, computed live from this card's
   // actual FSRS state — replaces the old hardcoded ratingIntervals mock.
@@ -67,11 +80,14 @@ export default function Review() {
   }
 
   async function handleRate(rating, ratingId) {
-    // State C -> FSRS scheduler update -> State D.
-    const { state: nextState } = schedule(currentState, rating, Date.now(), requestRetention)
-    setSaving(true)
-    await Promise.all([saveCardState(current.id, nextState), logReview(current.id, rating, nextState)])
-    setSaving(false)
+    // State C -> FSRS scheduler update -> State D. Skipped for practice:
+    // drills don't move a card's schedule or add to the review log.
+    if (!isPractice) {
+      const { state: nextState } = schedule(currentState, rating, Date.now(), requestRetention)
+      setSaving(true)
+      await Promise.all([saveCardState(current.id, nextState), logReview(current.id, rating, nextState)])
+      setSaving(false)
+    }
     ratedCountRef.current += 1
     setSessionStats((s) => ({ ...s, [ratingId]: s[ratingId] + 1 }))
     setRevealed(false)
@@ -84,6 +100,7 @@ export default function Review() {
       {/* Progress + close — full-screen flow, no persistent nav during recall (spec 4.3 / 7) */}
       <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-surface sticky top-0">
         <span className="text-xs font-medium text-neutral-500 shrink-0 tabular-nums">
+          {isPractice && <span className="text-primary-text mr-2">Practice</span>}
           {Math.min(index + 1, total)} / {total}
         </span>
         <div className="flex-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
@@ -94,7 +111,7 @@ export default function Review() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate(exitPath)}
           className="p-2 -mr-2 rounded-md text-neutral-500 hover:bg-neutral-100 shrink-0"
           aria-label="Close review"
         >
@@ -104,19 +121,23 @@ export default function Review() {
 
       <div className="flex-1 flex items-center justify-center px-4 py-10">
         {queue === null ? (
-          <p className="text-sm text-neutral-400">Loading your review queue…</p>
+          <p className="text-sm text-neutral-400">{isPractice ? 'Loading your practice set…' : 'Loading your review queue…'}</p>
         ) : done ? (
           <div className="w-full max-w-sm text-center">
             <div className="flex items-center justify-center w-14 h-14 rounded-full bg-secondary-light text-secondary-text mx-auto mb-4">
               <PartyPopper className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">
-              {total ? 'Review complete!' : 'Nothing due right now'}
+              {total ? (isPractice ? 'Practice complete!' : 'Review complete!') : isPractice ? 'No cards to practise' : 'Nothing due right now'}
             </h1>
             <p className="text-sm text-neutral-500 mt-1 mb-6">
               {total
-                ? `Nice work — you got through all ${total} cards due today.`
-                : 'No cards are due yet. Add cards to a subject or check back later.'}
+                ? isPractice
+                  ? `You worked through ${total} cards. Practice doesn't change your review schedule.`
+                  : `Nice work — you got through all ${total} cards due today.`
+                : isPractice
+                  ? 'There are no cards for this set yet.'
+                  : 'No cards are due yet. Add cards to a subject or check back later.'}
             </p>
             <div className="flex justify-center gap-4 text-xs text-neutral-500 mb-6">
               <span>{sessionStats.again} again</span>
@@ -124,8 +145,8 @@ export default function Review() {
               <span>{sessionStats.good} good</span>
               <span>{sessionStats.easy} easy</span>
             </div>
-            <Button variant="primary" className="w-full" onClick={() => navigate('/')}>
-              Back to Dashboard
+            <Button variant="primary" className="w-full" onClick={() => navigate(exitPath)}>
+              {isPractice ? 'Back to Practice' : 'Back to Dashboard'}
             </Button>
             <Button variant="secondary" className="w-full mt-2" onClick={() => navigate('/subjects')}>
               Browse Subjects
@@ -156,14 +177,16 @@ export default function Review() {
                     key={id}
                     type="button"
                     onClick={() => handleRate(rating, id)}
-                    disabled={!preview || saving}
+                    disabled={(!isPractice && !preview) || saving}
                     className={`flex flex-col items-center gap-1 rounded-md border py-3 text-xs font-semibold transition-colors disabled:opacity-50 ${classes}`}
                   >
                     <Icon className="w-4 h-4" />
                     {label}
-                    <span className="text-[10px] font-normal opacity-80">
-                      {preview ? formatDue(preview[id]) : '…'}
-                    </span>
+                    {!isPractice && (
+                      <span className="text-[10px] font-normal opacity-80">
+                        {preview ? formatDue(preview[id]) : '…'}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

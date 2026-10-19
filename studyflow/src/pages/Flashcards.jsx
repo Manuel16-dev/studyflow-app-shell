@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Layers } from 'lucide-react'
+import { Plus, Layers, Search } from 'lucide-react'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import CardFormModal from '../components/cards/CardFormModal'
 import CardListItem from '../components/cards/CardListItem'
 import { getSubjects } from '../lib/subjectsStore'
 import { getAllCards, addCard, updateCard, deleteCard, nextCardId } from '../lib/cardsStore'
+import { tagCounts } from '../lib/tags'
 
 // Global card browse/manage screen — every card across every subject, one
 // place. Real data only: getAllCards() (all subjects, joined) and
@@ -15,6 +16,8 @@ export default function Flashcards() {
   const [subjects, setSubjects] = useState([])
   const [cards, setCards] = useState(null) // null = loading
   const [subjectFilter, setSubjectFilter] = useState('all')
+  const [query, setQuery] = useState('')
+  const [activeTags, setActiveTags] = useState([]) // cards must have ALL of these
   const [formOpen, setFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -30,8 +33,26 @@ export default function Flashcards() {
 
   const filteredCards = useMemo(() => {
     if (!cards) return []
-    return subjectFilter === 'all' ? cards : cards.filter((c) => c.subjectId === subjectFilter)
-  }, [cards, subjectFilter])
+    const q = query.trim().toLowerCase()
+    return cards.filter(
+      (c) =>
+        (subjectFilter === 'all' || c.subjectId === subjectFilter) &&
+        activeTags.every((t) => c.tags?.includes(t)) &&
+        (!q || c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q))
+    )
+  }, [cards, subjectFilter, query, activeTags])
+
+  // Tags offered as filter chips come from the cards in the chosen subject,
+  // so a chip never leads to an empty list.
+  const allTags = useMemo(
+    () => tagCounts((cards ?? []).filter((c) => subjectFilter === 'all' || c.subjectId === subjectFilter)),
+    [cards, subjectFilter]
+  )
+  const filtersActive = query.trim() !== '' || activeTags.length > 0
+
+  function toggleTag(tag) {
+    setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
 
   function openAddForm() {
     setEditingCard(null)
@@ -43,11 +64,11 @@ export default function Flashcards() {
     setFormOpen(true)
   }
 
-  async function handleSave({ front, back, subjectId }) {
+  async function handleSave({ front, back, subjectId, tags }) {
     if (editingCard) {
-      await updateCard(editingCard.subjectId, editingCard.id, { front, back })
+      await updateCard(editingCard.subjectId, editingCard.id, { front, back, tags })
     } else {
-      await addCard(subjectId, { id: nextCardId(), front, back })
+      await addCard(subjectId, { id: nextCardId(), front, back, tags })
     }
     refresh()
     setFormOpen(false)
@@ -75,19 +96,60 @@ export default function Flashcards() {
         )}
       </div>
 
-      {subjects.length > 1 && (
-        <select
-          value={subjectFilter}
-          onChange={(e) => setSubjectFilter(e.target.value)}
-          className="self-start rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          <option value="all">All subjects</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+      {cards !== null && cards.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search questions and answers"
+              aria-label="Search cards"
+              className="w-full rounded-md border border-neutral-300 bg-surface pl-9 pr-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus-visible:outline-2 focus-visible:outline-primary"
+            />
+          </div>
+          {subjects.length > 1 && (
+            <select
+              value={subjectFilter}
+              onChange={(e) => {
+                setSubjectFilter(e.target.value)
+                setActiveTags([])
+              }}
+              aria-label="Filter by subject"
+              className="rounded-md border border-neutral-300 bg-surface px-3 py-2 text-sm text-neutral-900 focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <option value="all">All subjects</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by tag">
+          {allTags.map(([tag, n]) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleTag(tag)}
+              aria-pressed={activeTags.includes(tag)}
+              className={[
+                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-primary',
+                activeTags.includes(tag)
+                  ? 'border-primary bg-primary-light text-primary-text'
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50',
+              ].join(' ')}
+            >
+              #{tag} <span className="text-neutral-500">{n}</span>
+            </button>
           ))}
-        </select>
+        </div>
       )}
 
       {cards === null ? null : subjects.length === 0 ? (
@@ -98,12 +160,28 @@ export default function Flashcards() {
         <div className="bg-surface border border-dashed border-neutral-300 rounded-lg p-10 text-center flex flex-col items-center gap-4">
           <Layers className="w-8 h-8 text-neutral-300" />
           <p className="text-neutral-500">
-            {subjectFilter === 'all' ? 'No cards yet.' : 'No cards in this subject yet.'}
+            {filtersActive
+              ? 'No cards match your search or tags.'
+              : subjectFilter === 'all'
+                ? 'No cards yet.'
+                : 'No cards in this subject yet.'}
           </p>
-          <Button variant="primary" onClick={openAddForm}>
-            <Plus className="w-4 h-4" />
-            Add a card
-          </Button>
+          {filtersActive ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setQuery('')
+                setActiveTags([])
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={openAddForm}>
+              <Plus className="w-4 h-4" />
+              Add a card
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -129,6 +207,7 @@ export default function Flashcards() {
         initialCard={editingCard}
         subjects={subjects}
         initialSubjectId={subjectFilter !== 'all' ? subjectFilter : undefined}
+        tagSuggestions={tagCounts(cards ?? []).map(([t]) => t)}
       />
 
       <Modal open={!!pendingDelete} onClose={() => setPendingDelete(null)} title="Delete this card?">

@@ -7,6 +7,7 @@ import CardFormModal from '../components/cards/CardFormModal'
 import CardListItem from '../components/cards/CardListItem'
 import { getSubject, deleteSubject } from '../lib/subjectsStore'
 import { getCards, addCard, updateCard, deleteCard, nextCardId } from '../lib/cardsStore'
+import { tagCounts } from '../lib/tags'
 import { resolveIcon } from '../lib/iconMap'
 
 export default function SubjectDetail() {
@@ -56,11 +57,11 @@ export default function SubjectDetail() {
     setFormOpen(true)
   }
 
-  async function handleSave({ front, back }) {
+  async function handleSave({ front, back, tags }) {
     if (editingCard) {
-      setCards(await updateCard(id, editingCard.id, { front, back }))
+      setCards(await updateCard(id, editingCard.id, { front, back, tags }))
     } else {
-      setCards(await addCard(id, { id: nextCardId(), front, back }))
+      setCards(await addCard(id, { id: nextCardId(), front, back, tags }))
     }
     setFormOpen(false)
     setEditingCard(null)
@@ -163,6 +164,7 @@ export default function SubjectDetail() {
         }}
         onSave={handleSave}
         initialCard={editingCard}
+        tagSuggestions={tagCounts(cards).map(([t]) => t)}
       />
 
       <Modal open={!!pendingDelete} onClose={() => setPendingDelete(null)} title="Delete this card?">

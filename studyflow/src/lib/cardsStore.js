@@ -13,7 +13,7 @@ export function nextCardId() {
 export async function getCards(subjectId) {
   const { data, error } = await supabase
     .from('cards')
-    .select('id, front, back, source_ref, kind')
+    .select('id, front, back, source_ref, kind, tags')
     .eq('subject_id', subjectId)
     .order('created_at', { ascending: true })
   if (error) throw error
@@ -26,13 +26,16 @@ export async function getCards(subjectId) {
 export async function getAllCards() {
   const { data, error } = await supabase
     .from('cards')
-    .select('id, front, back, subject_id, subjects(name)')
+    .select('id, front, back, subject_id, source_ref, kind, tags, subjects(name)')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data.map((row) => ({
     id: row.id,
     front: row.front,
     back: row.back,
+    sourceRef: row.source_ref,
+    kind: row.kind,
+    tags: row.tags ?? [],
     subjectId: row.subject_id,
     subjectName: row.subjects?.name,
   }))
@@ -62,7 +65,7 @@ export async function addCard(subjectId, card) {
   const userId = await requireUserId()
   const { error } = await supabase
     .from('cards')
-    .insert({ id: card.id, subject_id: subjectId, user_id: userId, front: card.front, back: card.back })
+    .insert({ id: card.id, subject_id: subjectId, user_id: userId, front: card.front, back: card.back, tags: card.tags ?? [] })
   if (error) throw error
   return getCards(subjectId)
 }

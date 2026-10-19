@@ -19,6 +19,7 @@ import Settings from './pages/Settings'
 import Flashcards from './pages/Flashcards'
 import Profile from './pages/Profile'
 import Library from './pages/Library'
+import Practice from './pages/Practice'
 import ThemeSwitcher from './components/ui/ThemeSwitcher'
 
 // Placeholder copy per screen — real screens replace these one by one,
@@ -27,7 +28,6 @@ const pages = {
   dashboard: { title: 'Dashboard', description: 'What should I study now? Reviews due, streak, weak areas, and today\u2019s plan.' },
   review: { title: 'Review', description: 'Distraction-free flashcard review — the core learning loop.' },
   subjects: { title: 'Subjects', description: 'Your courses and topics, with mastery progress.' },
-  practice: { title: 'Practice', description: 'Targeted practice outside the scheduled review queue.' },
   tutor: { title: 'AI Tutor', description: 'Contextual explanations and Socratic questioning.' },
   exams: { title: 'Exams', description: 'Readiness by topic, days remaining, and prep recommendations.' },
   calendar: { title: 'Calendar', description: 'Study plan, review blocks, and exam deadlines.' },
@@ -54,7 +54,7 @@ export default function App() {
             <Route path="/subjects" element={<Subjects />} />
             <Route path="/subjects/:id" element={<SubjectDetail />} />
             <Route path="/flashcards" element={<Flashcards />} />
-            <Route path="/practice" element={<PlaceholderPage {...pages.practice} />} />
+            <Route path="/practice" element={<Practice />} />
             <Route path="/tutor" element={<PlaceholderPage {...pages.tutor} />} />
             <Route path="/exams" element={<Exams />} />
             <Route path="/exams/:id" element={<ExamDetail />} />
