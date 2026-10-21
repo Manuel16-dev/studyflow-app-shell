@@ -148,6 +148,15 @@ function Select({ id, label, value, onChange, options }) {
   )
 }
 
+const limitOptions = (values) => [
+  ...values.map((n) => ({ value: String(n), label: String(n) })),
+  { value: 'unlimited', label: 'No limit' },
+]
+const newPerDayOptions = limitOptions([5, 10, 20, 30, 50, 100])
+const reviewsPerDayOptions = limitOptions([50, 100, 200, 300, 500])
+const limitToSelect = (v) => (v === null ? 'unlimited' : String(v))
+const selectToLimit = (v) => (v === 'unlimited' ? null : Number(v))
+
 const retentionCopy = (v) => {
   if (v >= 0.93) return 'Very thorough — frequent reviews, minimal forgetting'
   if (v >= 0.87) return 'Balanced — the default most students should use'
@@ -211,7 +220,7 @@ export default function Settings() {
   useEffect(() => {
     getSettings().then((real) => {
       if (!real) return // trigger hasn't created the row yet — keep defaults
-      setBehavior(real.studyBehavior)
+      setBehavior({ ...mockSettings.studyBehavior, ...real.studyBehavior })
       setNotifications(real.notifications)
       setAppearance(real.appearance)
     })
@@ -323,6 +332,26 @@ export default function Settings() {
         <p className="text-xs text-neutral-500 mt-2">
           If push notifications are on, your review reminder arrives once a day during this window
           (evening ≈ 6–9pm, in your timezone above) — not the moment a card becomes due.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-neutral-100 pt-4 mt-1">
+          <Select
+            id="new-cards-per-day"
+            label="New cards per day"
+            value={limitToSelect(behavior.newCardsPerDay)}
+            onChange={(v) => setB('newCardsPerDay', selectToLimit(v))}
+            options={newPerDayOptions}
+          />
+          <Select
+            id="max-reviews-per-day"
+            label="Maximum reviews per day"
+            value={limitToSelect(behavior.maxReviewsPerDay)}
+            onChange={(v) => setB('maxReviewsPerDay', selectToLimit(v))}
+            options={reviewsPerDayOptions}
+          />
+        </div>
+        <p className="text-xs text-neutral-500 mt-2">
+          Limits reset at midnight. Cards over the limit wait for the next day, so a big backlog never ambushes you.
         </p>
 
         <div className="flex items-start gap-2 bg-primary-light text-primary-text text-xs rounded-md px-3 py-2 mt-4">

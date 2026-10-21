@@ -8,6 +8,8 @@ export const mockSettings = {
     // so changing this won't yet change real review timing.
     desiredRetention: 0.9, // 0.7–0.97
     dailyTargetMinutes: 30,
+    newCardsPerDay: 20, // number, or null for unlimited
+    maxReviewsPerDay: 200, // number, or null for unlimited
     preferredStudyTime: 'evening', // morning | afternoon | evening | flexible
     timezone: 'Africa/Accra',
   },

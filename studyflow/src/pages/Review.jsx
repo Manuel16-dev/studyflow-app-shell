@@ -4,9 +4,38 @@ import { X, RotateCcw, TrendingDown, Check, Zap, PartyPopper } from 'lucide-reac
 import Button from '../components/ui/Button'
 import { Rating, schedule, previewIntervals, formatDue } from '../lib/fsrs'
 import { getCardState, saveCardState, logReview } from '../lib/reviewStore'
-import { getDueQueue, getPracticeQueue, PRACTICE_SOURCES } from '../lib/reviewQueue'
+import { getDueSession, getPracticeQueue, PRACTICE_SOURCES } from '../lib/reviewQueue'
 import { getSettings } from '../lib/settingsStore'
 import { logStudySession } from '../lib/studySessionsStore'
+import { todayKey } from '../lib/dates'
+
+// Reviews save to the database one card at a time, so leaving mid-session
+// never loses a rating and reopening Review continues with what's left. This
+// small local record just keeps the *progress* (cards done today, rating
+// counts) so the bar and the summary carry on instead of restarting at 0.
+const PROGRESS_KEY = 'studyflow-review-progress'
+function readProgress() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY))
+    return saved && saved.day === todayKey() ? saved : null
+  } catch {
+    return null
+  }
+}
+function writeProgress(value) {
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(value))
+  } catch {
+    // storage unavailable: progress simply restarts next time
+  }
+}
+function clearProgress() {
+  try {
+    localStorage.removeItem(PROGRESS_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 const ratings = [
   { id: 'again', rating: Rating.Again, label: 'Again', Icon: RotateCcw, classes: 'border-danger text-danger-text bg-danger-light hover:bg-danger hover:text-white' },
@@ -34,6 +63,8 @@ export default function Review() {
   const [currentState, setCurrentState] = useState(null)
   const [saving, setSaving] = useState(false)
   const [requestRetention, setRequestRetention] = useState(0.9) // default until settings load
+  const [baseDone, setBaseDone] = useState(0) // cards already finished earlier today
+  const [heldBack, setHeldBack] = useState(0) // due cards left out by daily limits
 
   // Wall-clock session tracking for the Dashboard's Study Time/Streak —
   // logged on unmount (covers both a normal finish and closing early via
@@ -50,10 +81,25 @@ export default function Review() {
   }, [])
 
   useEffect(() => {
-    const load = isPractice
-      ? getPracticeQueue({ source: practiceSource, subjectId: practiceSubject, limit: practiceLimit })
-      : getDueQueue()
-    load.then(setQueue).catch(() => setQueue([]))
+    if (isPractice) {
+      getPracticeQueue({ source: practiceSource, subjectId: practiceSubject, limit: practiceLimit })
+        .then(setQueue)
+        .catch(() => setQueue([]))
+    } else {
+      getDueSession()
+        .then(({ queue: due, heldBack: held }) => {
+          const saved = due.length > 0 ? readProgress() : null
+          if (saved) {
+            setBaseDone(saved.done)
+            setSessionStats(saved.stats)
+          } else {
+            clearProgress()
+          }
+          setHeldBack(held)
+          setQueue(due)
+        })
+        .catch(() => setQueue([]))
+    }
     getSettings().then((s) => {
       if (s?.studyBehavior?.desiredRetention) setRequestRetention(s.studyBehavior.desiredRetention)
     })
@@ -89,7 +135,12 @@ export default function Review() {
       setSaving(false)
     }
     ratedCountRef.current += 1
-    setSessionStats((s) => ({ ...s, [ratingId]: s[ratingId] + 1 }))
+    const nextStats = { ...sessionStats, [ratingId]: sessionStats[ratingId] + 1 }
+    setSessionStats(nextStats)
+    if (!isPractice) {
+      if (index + 1 >= total) clearProgress()
+      else writeProgress({ day: todayKey(), done: baseDone + index + 1, stats: nextStats })
+    }
     setRevealed(false)
     setCurrentState(null)
     setIndex((i) => i + 1)
@@ -101,19 +152,20 @@ export default function Review() {
       <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-surface sticky top-0">
         <span className="text-xs font-medium text-neutral-500 shrink-0 tabular-nums">
           {isPractice && <span className="text-primary-text mr-2">Practice</span>}
-          {Math.min(index + 1, total)} / {total}
+          {Math.min(baseDone + index + 1, baseDone + total)} / {baseDone + total}
         </span>
         <div className="flex-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${total ? (index / total) * 100 : 100}%` }}
+            style={{ width: `${total ? ((baseDone + index) / (baseDone + total)) * 100 : 100}%` }}
           />
         </div>
         <button
           type="button"
           onClick={() => navigate(exitPath)}
           className="p-2 -mr-2 rounded-md text-neutral-500 hover:bg-neutral-100 shrink-0"
-          aria-label="Close review"
+          aria-label={isPractice ? 'Close practice' : 'Pause review (your progress is saved)'}
+          title={isPractice ? 'Close' : 'Pause. Your progress is saved.'}
         >
           <X className="w-5 h-5" />
         </button>
@@ -128,16 +180,18 @@ export default function Review() {
               <PartyPopper className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-semibold text-neutral-900">
-              {total ? (isPractice ? 'Practice complete!' : 'Review complete!') : isPractice ? 'No cards to practise' : 'Nothing due right now'}
+              {total ? (isPractice ? 'Practice complete!' : 'Review complete!') : isPractice ? 'No cards to practise' : heldBack > 0 ? 'Daily limit reached' : 'Nothing due right now'}
             </h1>
             <p className="text-sm text-neutral-500 mt-1 mb-6">
               {total
                 ? isPractice
                   ? `You worked through ${total} cards. Practice doesn't change your review schedule.`
-                  : `Nice work — you got through all ${total} cards due today.`
+                  : `Nice work — you got through all ${baseDone + total} cards due today.`
                 : isPractice
                   ? 'There are no cards for this set yet.'
-                  : 'No cards are due yet. Add cards to a subject or check back later.'}
+                  : heldBack > 0
+                    ? 'You have done everything planned for today.'
+                    : 'No cards are due yet. Add cards to a subject or check back later.'}
             </p>
             <div className="flex justify-center gap-4 text-xs text-neutral-500 mb-6">
               <span>{sessionStats.again} again</span>
@@ -145,6 +199,15 @@ export default function Review() {
               <span>{sessionStats.good} good</span>
               <span>{sessionStats.easy} easy</span>
             </div>
+            {!isPractice && heldBack > 0 && (
+              <p className="text-xs text-neutral-500 -mt-3 mb-5">
+                {total > 0 ? 'Daily limit reached. ' : ''}
+                {heldBack} more card{heldBack === 1 ? ' is' : 's are'} waiting for tomorrow.{' '}
+                <button type="button" onClick={() => navigate('/settings')} className="underline text-primary-text">
+                  Adjust limits
+                </button>
+              </p>
+            )}
             <Button variant="primary" className="w-full" onClick={() => navigate(exitPath)}>
               {isPractice ? 'Back to Practice' : 'Back to Dashboard'}
             </Button>

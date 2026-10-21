@@ -4,12 +4,21 @@
 // Dashboard.jsx both read this instead of each computing their own version.
 import { supabase } from './supabaseClient'
 import { retrievability } from './fsrs'
-import { daysUntilKey } from './dates'
+import { daysUntilKey, startOfDay } from './dates'
+import { requireUserId } from './authHelpers'
+import { getSettings } from './settingsStore'
+
+// Daily limits live in settings.study_behavior. `undefined` means the user
+// never touched the setting (use the default); `null` means "unlimited".
+export const DEFAULT_NEW_PER_DAY = 20
+export const DEFAULT_REVIEWS_PER_DAY = 200
+const limitOf = (value, fallback) => (value === null ? Infinity : typeof value === 'number' ? value : fallback)
 
 async function allCardsWithState() {
   const { data, error } = await supabase
     .from('cards')
     .select('id, subject_id, front, back, subjects(name), reviews(reps, due)')
+    .eq('suspended', false)
   if (error) throw error
   // reviews is a 1:1 embed (card_id is the PK) but guard against either shape.
   return data.map((row) => ({
@@ -18,22 +27,85 @@ async function allCardsWithState() {
   }))
 }
 
-export async function getDueQueue(now = Date.now()) {
-  const rows = await allCardsWithState()
-  return rows
-    .filter((r) => !r.review?.due || new Date(r.review.due).getTime() <= now)
-    .map((r) => ({
+// What the student has already done today (their own local day): which cards
+// they met for the first time today, and how many repeat reviews they did.
+// Read from review_logs, which practice never writes to.
+async function todayActivity() {
+  const userId = await requireUserId()
+  const since = startOfDay().toISOString()
+  const { data: logs, error } = await supabase
+    .from('review_logs')
+    .select('card_id')
+    .eq('user_id', userId)
+    .gte('reviewed_at', since)
+  if (error) throw error
+  const ids = [...new Set(logs.map((l) => l.card_id))]
+  if (ids.length === 0) return { newToday: new Set(), reviewsDone: 0 }
+
+  // A card is "new today" if it has no log from before today. Chunked so a
+  // long list of ids can't overflow the request URL.
+  const seenBefore = new Set()
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: earlier, error: e2 } = await supabase
+      .from('review_logs')
+      .select('card_id')
+      .eq('user_id', userId)
+      .lt('reviewed_at', since)
+      .in('card_id', ids.slice(i, i + 100))
+    if (e2) throw e2
+    for (const l of earlier) seenBefore.add(l.card_id)
+  }
+  const newToday = new Set(ids.filter((id) => !seenBefore.has(id)))
+  const reviewsDone = logs.filter((l) => !newToday.has(l.card_id)).length
+  return { newToday, reviewsDone }
+}
+
+// The due queue for right now, with the daily limits applied. Order: cards
+// first met today that are due again (always finished), then overdue reviews
+// (most overdue first, up to the review budget), then brand new cards (up to
+// the new card budget). `heldBack` is how many due cards the limits left out.
+export async function getDueSession(now = Date.now()) {
+  const [rows, settings, activity] = await Promise.all([
+    allCardsWithState(),
+    getSettings().catch(() => null),
+    todayActivity().catch(() => ({ newToday: new Set(), reviewsDone: 0 })),
+  ])
+  const behavior = settings?.studyBehavior ?? {}
+  const newBudget = Math.max(0, limitOf(behavior.newCardsPerDay, DEFAULT_NEW_PER_DAY) - activity.newToday.size)
+  const reviewBudget = Math.max(0, limitOf(behavior.maxReviewsPerDay, DEFAULT_REVIEWS_PER_DAY) - activity.reviewsDone)
+
+  const learning = []
+  const reviews = []
+  const fresh = []
+  for (const r of rows) {
+    const isDue = !r.review?.due || new Date(r.review.due).getTime() <= now
+    if (!isDue) continue
+    if (activity.newToday.has(r.id)) learning.push(r)
+    else if (!r.review || r.review.reps === 0) fresh.push(r)
+    else reviews.push(r)
+  }
+  reviews.sort((a, b) => new Date(a.review.due || 0) - new Date(b.review.due || 0))
+
+  const picked = [...learning, ...reviews.slice(0, reviewBudget), ...fresh.slice(0, newBudget)]
+  const totalDue = learning.length + reviews.length + fresh.length
+  return {
+    queue: picked.map((r) => ({
       id: r.id,
       subjectId: r.subject_id,
       subject: r.subjects?.name,
       question: r.front,
       answer: r.back,
-    }))
+    })),
+    heldBack: totalDue - picked.length,
+  }
+}
+
+export async function getDueQueue(now = Date.now()) {
+  return (await getDueSession(now)).queue
 }
 
 export async function getDueCount(now = Date.now()) {
-  const rows = await allCardsWithState()
-  return rows.filter((r) => !r.review?.due || new Date(r.review.due).getTime() <= now).length
+  return (await getDueSession(now)).queue.length
 }
 
 // "New" = never reviewed (reps === 0 or no review row yet).
@@ -57,6 +129,7 @@ async function practicePool() {
   const { data, error } = await supabase
     .from('cards')
     .select('id, subject_id, front, back, kind, subjects(name), reviews(stability, last_review)')
+    .eq('suspended', false)
   if (error) throw error
   const now = Date.now()
   return data.map((row) => {

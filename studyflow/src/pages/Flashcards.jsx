@@ -64,6 +64,11 @@ export default function Flashcards() {
     setFormOpen(true)
   }
 
+  async function handleToggleSuspend(card) {
+    await updateCard(card.subjectId, card.id, { suspended: !card.suspended })
+    refresh()
+  }
+
   async function handleSave({ front, back, subjectId, tags }) {
     if (editingCard) {
       await updateCard(editingCard.subjectId, editingCard.id, { front, back, tags })
@@ -192,6 +197,7 @@ export default function Flashcards() {
               subjectLabel={subjectFilter === 'all' ? card.subjectName : undefined}
               onEdit={openEditForm}
               onDelete={setPendingDelete}
+              onToggleSuspend={handleToggleSuspend}
             />
           ))}
         </div>

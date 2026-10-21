@@ -33,6 +33,10 @@ async function invoke(payload) {
       } catch {
         // keep the raw message
       }
+      // Older function versions passed the provider's raw JSON through.
+      if (/Gemini \d{3}|UNAVAILABLE|high demand|quota/i.test(message)) {
+        message = 'The AI service is busy right now. Wait a minute and try again.'
+      }
       throw new GenerationError(message, { retryable: status === 429 || status === 502 })
     }
     throw new GenerationError(

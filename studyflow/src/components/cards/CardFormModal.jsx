@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { X } from 'lucide-react'
 import { MAX_TAGS, MAX_TAG_LENGTH, normalizeTag, normalizeTags } from '../../lib/tags'
+import { buildTopicTree } from '../../lib/topicsStore'
 
 const MAX_LEN = 500
 
@@ -13,11 +14,14 @@ const MAX_LEN = 500
 // subject picker so a card can be filed correctly with no subject context
 // already in the URL. Per-subject callers (SubjectDetail, GenerateCards)
 // omit it and get the original two-field form, unchanged.
-export default function CardFormModal({ open, onClose, onSave, initialCard, subjects, initialSubjectId, tagSuggestions = [] }) {
+// `topics` (flat list for one subject) is optional too: when it has entries a
+// Topic picker appears, so a card can be filed under a topic or subtopic.
+export default function CardFormModal({ open, onClose, onSave, initialCard, subjects, initialSubjectId, tagSuggestions = [], topics = [], initialTopicId = '' }) {
   const isEdit = !!initialCard
   const [front, setFront] = useState('')
   const [back, setBack] = useState('')
   const [subjectId, setSubjectId] = useState('')
+  const [topicId, setTopicId] = useState('')
   const [errors, setErrors] = useState({})
   const [tags, setTags] = useState([])
   const [tagDraft, setTagDraft] = useState('')
@@ -27,10 +31,11 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
     setFront(initialCard?.front ?? '')
     setBack(initialCard?.back ?? '')
     setSubjectId(initialCard?.subjectId ?? initialSubjectId ?? '')
+    setTopicId(initialCard ? (initialCard.topic_id ?? initialCard.topicId ?? '') : initialTopicId ?? '')
     setTags(initialCard?.tags ?? [])
     setTagDraft('')
     setErrors({})
-  }, [open, initialCard, initialSubjectId])
+  }, [open, initialCard, initialSubjectId, initialTopicId])
 
   function handleSave() {
     const nextErrors = {}
@@ -47,6 +52,7 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
       front: front.trim(),
       back: back.trim(),
       subjectId: subjectId || undefined,
+      topicId: topicId || null,
       tags: normalizeTags(pending ? [...tags, pending] : tags),
     })
   }
@@ -87,6 +93,32 @@ export default function CardFormModal({ open, onClose, onSave, initialCard, subj
               ))}
             </select>
             {errors.subject && <p className="text-sm text-danger-text">{errors.subject}</p>}
+          </div>
+        )}
+
+        {topics.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="card-topic" className="text-sm font-medium text-neutral-700">
+              Topic <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
+            <select
+              id="card-topic"
+              value={topicId}
+              onChange={(e) => setTopicId(e.target.value)}
+              className="w-full rounded-md border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <option value="">No topic</option>
+              {buildTopicTree(topics).map((t) => [
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>,
+                ...t.children.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {t.name} › {c.name}
+                  </option>
+                )),
+              ])}
+            </select>
           </div>
         )}
 
