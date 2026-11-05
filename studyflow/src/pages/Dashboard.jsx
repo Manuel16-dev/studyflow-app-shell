@@ -15,6 +15,8 @@ import { getEstimatedReviewMinutes, getRecentActivity } from '../lib/activitySto
 import { getTodaysPlanBlocks } from '../lib/planBlocksStore'
 import { getProfile } from '../lib/profileStore'
 import { getXpSummary, syncAchievements } from '../lib/xpStore'
+import GettingStarted from '../components/ui/GettingStarted'
+import { getOnboardingProgress } from '../lib/onboardingStore'
 import LevelCard from '../components/gamification/LevelCard'
 import { AchievementBanner } from '../components/gamification/Achievements'
 
@@ -116,6 +118,11 @@ export default function Dashboard() {
       .then(() => getXpSummary().then(setXpSummary).catch(() => setXpSummary(false)))
   }, [])
 
+  const [onboarding, setOnboarding] = useState(null)
+  useEffect(() => {
+    getOnboardingProgress().then(setOnboarding).catch(() => {})
+  }, [])
+
   useEffect(() => {
     getDueCount().then((count) => {
       setReviewsDue(count)
@@ -157,6 +164,8 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      <GettingStarted progress={onboarding} />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

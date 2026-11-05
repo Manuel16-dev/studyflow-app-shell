@@ -238,14 +238,15 @@ export default function SubjectDetail() {
       {cards.length === 0 ? (
         <div className="bg-surface border border-dashed border-neutral-300 rounded-lg p-10 text-center flex flex-col items-center gap-4">
           <p className="text-neutral-500">This subject has no cards yet.</p>
+          <p className="text-sm text-neutral-500 -mt-2">Upload your notes or slides and get cards in about 30 seconds.</p>
           <div className="flex gap-2">
-            <Button variant="primary" onClick={openAddForm}>
-              <Plus className="w-4 h-4" />
-              Add cards
-            </Button>
-            <Button variant="secondary" onClick={() => navigate(`/subjects/${id}/generate`)}>
+            <Button variant="primary" onClick={() => navigate(`/subjects/${id}/generate`)}>
               <Sparkles className="w-4 h-4" />
               Generate from material
+            </Button>
+            <Button variant="secondary" onClick={openAddForm}>
+              <Plus className="w-4 h-4" />
+              Add cards manually
             </Button>
           </div>
         </div>
