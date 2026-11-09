@@ -84,7 +84,7 @@ export async function addCards(subjectId, cards, { materialId = null } = {}) {
     back: c.back,
     material_id: materialId,
     chunk_index: c.chunkIndex ?? null,
-    source_ref: c.sourceRef && c.sourceRef !== '—' ? c.sourceRef : null,
+    source_ref: c.sourceRef && c.sourceRef !== '—' && c.sourceRef !== '-' ? c.sourceRef : null,
     kind: c.kind === 'practice' ? 'practice' : 'flashcard',
   }))
   const { error } = await supabase.from('cards').insert(rows)

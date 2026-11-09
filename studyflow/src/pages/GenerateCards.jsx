@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FileText, Sparkles, RefreshCw, Trash2, AlertCircle, CheckCircle2, Upload, X } from 'lucide-react'
+import { FileText, Sparkles, RefreshCw, Trash2, AlertCircle, CheckCircle2, Upload, X, ClipboardPaste } from 'lucide-react'
 import FlowTopBar from '../components/ui/FlowTopBar'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -96,6 +96,11 @@ export default function GenerateCards() {
   const [phase, setPhase] = useState('') // processing sub-stage label
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
+  // Source tab: 'upload' | 'paste'. Pasted text is wrapped in a .txt File and
+  // sent through the exact same pipeline as an upload (storage + material row
+  // + coverage tracking), so there is no second generation path to maintain.
+  const [sourceMode, setSourceMode] = useState('upload')
+  const [pasted, setPasted] = useState('')
 
   // "Generate more" support: pick a previously uploaded material instead of
   // uploading again. existingMaterials is the browse list; selectedMaterial
@@ -119,13 +124,28 @@ export default function GenerateCards() {
 
   useEffect(() => {
     getSubject(id).then((s) => setSubject(s ?? null))
-    getMaterialsWithCoverage(id).then(setExistingMaterials).catch(() => setExistingMaterials([]))
+    // First-time subjects (no materials yet) open on the lighter Paste tab.
+    getMaterialsWithCoverage(id)
+      .then((list) => {
+        setExistingMaterials(list)
+        if (list.length === 0) setSourceMode('paste')
+      })
+      .catch(() => setExistingMaterials([]))
   }, [id])
 
-  async function pickFile(e) {
+  function pickFile(e) {
     const picked = e.target.files?.[0]
     e.target.value = '' // allow re-picking the same file after removing it
-    if (!picked) return
+    if (picked) handleFile(picked)
+  }
+
+  function usePastedText() {
+    const firstLine = pasted.split('\n').find((l) => l.trim()) ?? 'Pasted notes'
+    const base = firstLine.replace(/[^\w .-]/g, '').trim().slice(0, 40) || 'Pasted notes'
+    handleFile(new File([pasted], `${base}.txt`, { type: 'text/plain' }))
+  }
+
+  async function handleFile(picked) {
     setError('')
     setFile(picked)
     setMaterial(null)
@@ -349,7 +369,7 @@ export default function GenerateCards() {
               <>
                 <h1 className="text-lg font-semibold text-neutral-900">Add source material</h1>
                 <p className="text-sm text-neutral-500 mt-1 mb-6">
-                  Upload a lecture PDF, DOCX, or text file and AI will turn it into flashcards.
+                  Upload a lecture PDF, DOCX, or text file, or paste your notes, and AI will turn it into flashcards.
                 </p>
 
                 {existingMaterials.length > 0 && (
@@ -389,6 +409,53 @@ export default function GenerateCards() {
                   </div>
                 )}
 
+                <div role="tablist" aria-label="Source type" className="grid grid-cols-2 gap-1 p-1 mb-4 rounded-lg bg-neutral-100">
+                  {[
+                    { value: 'upload', label: 'Upload file', Icon: Upload },
+                    { value: 'paste', label: 'Paste text', Icon: ClipboardPaste },
+                  ].map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="tab"
+                      aria-selected={sourceMode === value}
+                      onClick={() => setSourceMode(value)}
+                      className={[
+                        'flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary',
+                        sourceMode === value ? 'bg-surface text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700',
+                      ].join(' ')}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {sourceMode === 'paste' ? (
+                  <div className="text-left">
+                    <textarea
+                      value={pasted}
+                      onChange={(e) => setPasted(e.target.value)}
+                      rows={8}
+                      placeholder="Paste your notes, a lecture transcript, or a textbook section here"
+                      aria-label="Paste source text"
+                      className="w-full rounded-lg border border-neutral-300 bg-surface p-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus-visible:outline-2 focus-visible:outline-primary"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1 mb-3">
+                      {pasted.replace(/\s/g, '').length < 200
+                        ? `At least 200 characters needed (${pasted.replace(/\s/g, '').length} so far)`
+                        : `${pasted.length.toLocaleString()} characters`}
+                    </p>
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      disabled={pasted.replace(/\s/g, '').length < 200}
+                      onClick={usePastedText}
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                ) : (
                 <label
                   className="block border-2 border-dashed border-neutral-300 rounded-lg p-8 cursor-pointer hover:border-primary hover:bg-primary-light/30 transition-colors"
                 >
@@ -404,6 +471,7 @@ export default function GenerateCards() {
                   <span className="text-sm font-medium text-neutral-700">Choose a file</span>
                   <span className="block text-xs text-neutral-400 mt-1">PDF, DOCX, TXT or MD — up to 20 MB</span>
                 </label>
+                )}
               </>
             ) : (
               <>

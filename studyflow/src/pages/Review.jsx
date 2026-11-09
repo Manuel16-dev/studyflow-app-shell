@@ -8,6 +8,7 @@ import { getDueSession, getPracticeQueue, PRACTICE_SOURCES } from '../lib/review
 import { getSettings } from '../lib/settingsStore'
 import { logStudySession } from '../lib/studySessionsStore'
 import { todayKey } from '../lib/dates'
+import ScreenHint from '../components/ui/ScreenHint'
 
 // Reviews save to the database one card at a time, so leaving mid-session
 // never loses a rating and reopening Review continues with what's left. This
@@ -148,6 +149,7 @@ export default function Review() {
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
+      <ScreenHint position="top" />
       {/* Progress + close — full-screen flow, no persistent nav during recall (spec 4.3 / 7) */}
       <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-surface sticky top-0">
         <span className="text-xs font-medium text-neutral-500 shrink-0 tabular-nums">

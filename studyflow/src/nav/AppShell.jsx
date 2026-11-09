@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import TopBar from './TopBar'
 import MobileMenu from './MobileMenu'
+import ScreenHint from '../components/ui/ScreenHint'
 import { getDueCount } from '../lib/reviewQueue'
 import { getStreakDays } from '../lib/studySessionsStore'
 
@@ -38,6 +39,7 @@ export default function AppShell() {
       </div>
 
       <BottomNav reviewDueCount={reviewDueCount} />
+      <ScreenHint />
       <MobileMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

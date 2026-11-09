@@ -52,6 +52,12 @@ function agendaLabel(dateStr) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+// Durations are free text. Bare numbers read as minutes; anything else ("20 min") is shown as typed.
+function formatDuration(d) {
+  const v = String(d ?? '').trim()
+  return /^\d+$/.test(v) ? `${v} min` : v
+}
+
 export default function Planner() {
   const navigate = useNavigate()
   // null = still checking subjects. You need at least one subject to build
@@ -210,7 +216,7 @@ export default function Planner() {
             <p className="text-xs font-semibold text-neutral-900 truncate">{block.title}</p>
             <p className="flex items-center gap-1 text-[11px] text-neutral-500 mt-1">
               <Clock className="w-3 h-3 shrink-0" />
-              {block.time} &middot; {block.duration} mins
+              {block.time} &middot; {formatDuration(block.duration)}
             </p>
           </div>
         </div>
@@ -413,7 +419,7 @@ function RescheduleForm({ block, onSave, onDelete, onCancel, onOpenSubject }) {
     <div className="flex flex-col gap-4">
       <div>
         <p className="text-sm font-medium text-neutral-900">{block.title}</p>
-        <p className="text-xs text-neutral-500 mt-0.5">{block.duration}{subject ? ` \u00b7 ${subject}` : ''}</p>
+        <p className="text-xs text-neutral-500 mt-0.5">{formatDuration(block.duration)}{subject ? ` \u00b7 ${subject}` : ''}</p>
       </div>
 
       <TextField
