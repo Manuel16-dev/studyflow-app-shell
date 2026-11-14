@@ -1,14 +1,39 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { X, RotateCcw, TrendingDown, Check, Zap, PartyPopper } from 'lucide-react'
 import Button from '../components/ui/Button'
-import { Rating, schedule, previewIntervals, formatDue } from '../lib/fsrs'
+import { Rating, State, schedule } from '../lib/fsrs'
 import { getCardState, saveCardState, logReview } from '../lib/reviewStore'
 import { getDueSession, getPracticeQueue, PRACTICE_SOURCES } from '../lib/reviewQueue'
 import { getSettings } from '../lib/settingsStore'
 import { logStudySession } from '../lib/studySessionsStore'
 import { todayKey } from '../lib/dates'
 import ScreenHint from '../components/ui/ScreenHint'
+import { useLevelUp } from '../components/gamification/useLevelUp'
+import { getXpSummary } from '../lib/xpStore'
+
+// Card animation. The flip is pure CSS (see .sf-flip in index.css). On rating,
+// the card is pulled down into the button that was pressed; SUCK_TARGET aims
+// it at that button's column (4 equal buttons under the card) with a slight
+// twist, and VACUUM_MS matches the sf-vacuum duration in index.css.
+const VACUUM_MS = 380
+const SUCK_TARGET = {
+  again: { x: '-37%', rot: '-16deg' },
+  hard: { x: '-12%', rot: '-6deg' },
+  good: { x: '12%', rot: '6deg' },
+  easy: { x: '37%', rot: '16deg' },
+}
+const FACE =
+  'bg-surface border border-neutral-200 rounded-lg p-8 min-h-[280px] flex flex-col items-center justify-center text-center gap-4'
+
+// True when motion should be skipped: OS setting, or Settings > Appearance >
+// Reduce motion (which puts a class on <html>).
+function prefersReducedMotion() {
+  return (
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+    document.documentElement.classList.contains('reduce-motion')
+  )
+}
 
 // Reviews save to the database one card at a time, so leaving mid-session
 // never loses a rating and reopening Review continues with what's left. This
@@ -66,6 +91,8 @@ export default function Review() {
   const [requestRetention, setRequestRetention] = useState(0.9) // default until settings load
   const [baseDone, setBaseDone] = useState(0) // cards already finished earlier today
   const [heldBack, setHeldBack] = useState(0) // due cards left out by daily limits
+  const [requeued, setRequeued] = useState(0) // cards shown again this session because they're still being learned
+  const [leaving, setLeaving] = useState(null) // rating id while the card is being "sucked away"
 
   // Wall-clock session tracking for the Dashboard's Study Time/Streak —
   // logged on unmount (covers both a normal finish and closing early via
@@ -110,17 +137,21 @@ export default function Review() {
   const current = queue?.[index]
   const done = queue !== null && index >= total
 
+  // Celebrate a new level once the session is finished (never mid-review, so
+  // recall isn't interrupted). Each rating is already saved, so the XP read
+  // here includes this session's reviews.
+  const [levelUpModal, checkForLevelUp] = useLevelUp()
+  useEffect(() => {
+    if (!done || isPractice || total === 0) return
+    getXpSummary()
+      .then((summary) => checkForLevelUp(summary.totalXp))
+      .catch(() => {})
+  }, [done, isPractice, total, checkForLevelUp])
+
   useEffect(() => {
     if (!current || isPractice) return
     getCardState(current.id).then(setCurrentState)
   }, [current, isPractice])
-
-  // Predicted next-review time per rating, computed live from this card's
-  // actual FSRS state — replaces the old hardcoded ratingIntervals mock.
-  const preview = useMemo(
-    () => (currentState ? previewIntervals(currentState, Date.now(), requestRetention) : null),
-    [currentState, requestRetention]
-  )
 
   function handleReveal() {
     setRevealed(true) // State A -> State B
@@ -129,11 +160,23 @@ export default function Review() {
   async function handleRate(rating, ratingId) {
     // State C -> FSRS scheduler update -> State D. Skipped for practice:
     // drills don't move a card's schedule or add to the review log.
+    let stillLearning = false
     if (!isPractice) {
       const { state: nextState } = schedule(currentState, rating, Date.now(), requestRetention)
       setSaving(true)
       await Promise.all([saveCardState(current.id, nextState), logReview(current.id, rating, nextState)])
       setSaving(false)
+      stillLearning = nextState.state !== State.Review
+    }
+    // Pull the card into the button that was pressed, then move on. The wait
+    // is skipped when the user (or their OS) has asked for reduced motion.
+    setLeaving(ratingId)
+    if (!prefersReducedMotion()) await new Promise((resolve) => setTimeout(resolve, VACUUM_MS))
+    // A card still in a learning step comes back later in this same session
+    // (after the rest of the queue). Copied so it counts as a new queue entry.
+    if (stillLearning) {
+      setQueue((q) => [...q, { ...current }])
+      setRequeued((n) => n + 1)
     }
     ratedCountRef.current += 1
     const nextStats = { ...sessionStats, [ratingId]: sessionStats[ratingId] + 1 }
@@ -144,12 +187,14 @@ export default function Review() {
     }
     setRevealed(false)
     setCurrentState(null)
+    setLeaving(null)
     setIndex((i) => i + 1)
   }
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <ScreenHint position="top" />
+      {levelUpModal}
       {/* Progress + close — full-screen flow, no persistent nav during recall (spec 4.3 / 7) */}
       <header className="flex items-center gap-4 h-14 px-4 border-b border-neutral-200 bg-surface sticky top-0">
         <span className="text-xs font-medium text-neutral-500 shrink-0 tabular-nums">
@@ -188,7 +233,7 @@ export default function Review() {
               {total
                 ? isPractice
                   ? `You worked through ${total} cards. Practice doesn't change your review schedule.`
-                  : `Nice work — you got through all ${baseDone + total} cards due today.`
+                  : `Nice work — you got through all ${baseDone + total - requeued} cards due today.`
                 : isPractice
                   ? 'There are no cards for this set yet.'
                   : heldBack > 0
@@ -219,20 +264,39 @@ export default function Review() {
           </div>
         ) : (
           <div className="w-full max-w-md">
-            <p className="text-xs font-medium text-primary-text text-center mb-2">{current.subject}</p>
-            <div className="bg-surface border border-neutral-200 rounded-lg p-8 min-h-[280px] flex flex-col items-center justify-center text-center gap-4">
-              <h1 className="text-lg md:text-xl font-semibold text-neutral-900">{current.question}</h1>
-
-              {!revealed ? (
-                <>
-                  <p className="text-sm text-neutral-400">Think about the answer</p>
-                  <Button variant="primary" onClick={handleReveal} className="mt-2">
-                    Show Answer
-                  </Button>
-                </>
-              ) : (
-                <p className="text-sm text-neutral-700 border-t border-neutral-100 pt-4 mt-1">{current.answer}</p>
-              )}
+            {/* Keyed by queue position so every new card plays its entrance. */}
+            <div key={index} className="sf-enter">
+              <p className="text-xs font-medium text-primary-text text-center mb-2">{current.subject}</p>
+              <div
+                className={`sf-vacuum ${leaving ? 'is-leaving' : ''}`}
+                style={leaving ? { '--sx': SUCK_TARGET[leaving].x, '--rot': SUCK_TARGET[leaving].rot } : undefined}
+              >
+                <div className="sf-scene">
+                  <div className={`sf-flip ${revealed ? 'is-flipped' : ''}`}>
+                    {/* The face turned away is inert so keyboard and screen readers skip it. */}
+                    <div
+                      className={`${FACE} sf-face`}
+                      inert={revealed}
+                      aria-hidden={revealed}
+                    >
+                      <h1 className="text-lg md:text-xl font-semibold text-neutral-900">{current.question}</h1>
+                      <p className="text-sm text-neutral-400">Think about the answer</p>
+                      <Button variant="primary" onClick={handleReveal} className="mt-2">
+                        Show Answer
+                      </Button>
+                    </div>
+                    <div
+                      className={`${FACE} sf-face sf-face-back border-primary/40`}
+                      inert={!revealed}
+                      aria-hidden={!revealed}
+                    >
+                      <p className="text-xs text-neutral-400 line-clamp-3">{current.question}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-primary-text">Answer</p>
+                      <p className="text-lg md:text-xl font-semibold text-neutral-900">{current.answer}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {revealed && (
@@ -242,16 +306,11 @@ export default function Review() {
                     key={id}
                     type="button"
                     onClick={() => handleRate(rating, id)}
-                    disabled={(!isPractice && !preview) || saving}
+                    disabled={(!isPractice && !currentState) || saving || leaving !== null}
                     className={`flex flex-col items-center gap-1 rounded-md border py-3 text-xs font-semibold transition-colors disabled:opacity-50 ${classes}`}
                   >
                     <Icon className="w-4 h-4" />
                     {label}
-                    {!isPractice && (
-                      <span className="text-[10px] font-normal opacity-80">
-                        {preview ? formatDue(preview[id]) : '…'}
-                      </span>
-                    )}
                   </button>
                 ))}
               </div>

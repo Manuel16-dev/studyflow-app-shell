@@ -369,7 +369,7 @@ export default function GenerateCards() {
               <>
                 <h1 className="text-lg font-semibold text-neutral-900">Add source material</h1>
                 <p className="text-sm text-neutral-500 mt-1 mb-6">
-                  Upload a lecture PDF, DOCX, or text file, or paste your notes, and AI will turn it into flashcards.
+                  Upload lecture slides (PPTX), a PDF, DOCX or text file, or paste your notes, and AI will turn it into flashcards.
                 </p>
 
                 {existingMaterials.length > 0 && (
@@ -469,7 +469,7 @@ export default function GenerateCards() {
                   />
                   <Upload className="w-6 h-6 text-neutral-400 mx-auto mb-2" />
                   <span className="text-sm font-medium text-neutral-700">Choose a file</span>
-                  <span className="block text-xs text-neutral-400 mt-1">PDF, DOCX, TXT or MD — up to 20 MB</span>
+                  <span className="block text-xs text-neutral-400 mt-1">PDF, PPTX, DOCX, TXT or MD — up to 20 MB</span>
                 </label>
                 )}
               </>

@@ -16,6 +16,7 @@ import { getTodaysPlanBlocks } from '../lib/planBlocksStore'
 import { getProfile } from '../lib/profileStore'
 import { getXpSummary, syncAchievements } from '../lib/xpStore'
 import LevelCard from '../components/gamification/LevelCard'
+import { useLevelUp } from '../components/gamification/useLevelUp'
 import { AchievementBanner } from '../components/gamification/Achievements'
 
 const activityIcons = {
@@ -107,14 +108,22 @@ export default function Dashboard() {
   // achievements. xpSummary: null = loading, false = failed (card hidden).
   const [xpSummary, setXpSummary] = useState(null)
   const [newAchievements, setNewAchievements] = useState([])
+  const [levelUpModal, checkForLevelUp] = useLevelUp()
 
   useEffect(() => {
     // Unlock first so any achievement XP is already in the total we then read.
     syncAchievements()
       .then(({ newlyUnlocked }) => setNewAchievements(newlyUnlocked))
       .catch(() => {})
-      .then(() => getXpSummary().then(setXpSummary).catch(() => setXpSummary(false)))
-  }, [])
+      .then(() =>
+        getXpSummary()
+          .then((summary) => {
+            setXpSummary(summary)
+            checkForLevelUp(summary.totalXp)
+          })
+          .catch(() => setXpSummary(false))
+      )
+  }, [checkForLevelUp])
 
   useEffect(() => {
     getDueCount().then((count) => {
@@ -142,6 +151,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto flex flex-col gap-4">
+      {levelUpModal}
       {/* Greeting */}
       <div className="flex items-start justify-between gap-4">
         <div>

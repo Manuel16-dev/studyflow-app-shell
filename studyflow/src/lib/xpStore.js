@@ -38,6 +38,42 @@ export function levelInfo(totalXp) {
   }
 }
 
+// --- Level-up detection -----------------------------------------------------
+// XP is derived on the server, so nothing tells the app a level was gained.
+// Instead each device remembers the last level it showed this user and
+// compares. levelUpFor is the pure rule:
+//   - no remembered level (first run on this device): no celebration, just
+//     remember where they are, so existing XP doesn't fire a fake level-up
+//   - level went up: celebrate (from = remembered level, to = new level)
+//   - same or lower (e.g. data deleted): nothing, remember the current level
+export function levelUpFor(lastSeenLevel, totalXp) {
+  const info = levelInfo(totalXp)
+  const event = lastSeenLevel && info.level > lastSeenLevel ? { from: lastSeenLevel, to: info.level, info } : null
+  return { event, level: info.level }
+}
+
+// Returns { from, to, info } when totalXp has crossed into a new level since
+// the last check on this device, otherwise null. Remembers the level per user.
+// Read and write happen with no await between them, so two checks running at
+// once (e.g. React StrictMode in dev) can't both celebrate the same level.
+export async function checkLevelUp(totalXp) {
+  const userId = await requireUserId()
+  const key = `studyflow-level-${userId}`
+  let lastSeen = 0
+  try {
+    lastSeen = Number(localStorage.getItem(key)) || 0
+  } catch {
+    return null // storage unavailable: can't tell what was already shown
+  }
+  const { event, level } = levelUpFor(lastSeen, totalXp)
+  try {
+    localStorage.setItem(key, String(level))
+  } catch {
+    // ignore: the worst case is the same level-up is shown again later
+  }
+  return event
+}
+
 export async function getXpSummary() {
   const { data, error } = await supabase.rpc('get_xp_summary')
   if (error) throw error

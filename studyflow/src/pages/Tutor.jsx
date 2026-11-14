@@ -361,7 +361,7 @@ export default function Tutor() {
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            ref={textareaRef}
+            ref={textareaRef}                 
             onKeyDown={onKeyDown}
             rows={1}
             maxLength={2000}

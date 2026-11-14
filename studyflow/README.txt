@@ -15,13 +15,13 @@ project (same names, same nesting):
 After copying everything in:
 
 1. Add this line to .env.local:
-   VITE_VAPID_PUBLIC_KEY=BHuX6_EYnavVYL7q3HImc95XxVvIBNEOLEioseJrtDPbcfDGE115qoQB1SNaj0h8qwRIfO0eYMz73J7IkQaCf5k
+   VITE_VAPID_PUBLIC_KEY=
 
 2. In the Supabase dashboard → your project → Edge Functions →
    send-review-reminders → Secrets, add:
-   VAPID_PUBLIC_KEY  = BHuX6_EYnavVYL7q3HImc95XxVvIBNEOLEioseJrtDPbcfDGE115qoQB1SNaj0h8qwRIfO0eYMz73J7IkQaCf5k
-   VAPID_PRIVATE_KEY = FHo_WPrkZNWKqRSEsaULWAoVeAZVDL9dZgpKD9x0CCs
-   CRON_SECRET       = 309d557fe15b3e83b1d7f42da9120e6977de2d642d8c605f7804509e28078a1d
+   VAPID_PUBLIC_KEY  = 
+   VAPID_PRIVATE_KEY = 
+   CRON_SECRET       = 
 
 3. Restart the dev server (not just a browser refresh) and rebuild.
 

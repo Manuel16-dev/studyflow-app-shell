@@ -13,6 +13,7 @@ import { getCardCounts } from '../lib/cardsStore'
 import { getOverallMastery, getRetentionRate } from '../lib/progressStore'
 import { getXpSummary, syncAchievements } from '../lib/xpStore'
 import LevelCard from '../components/gamification/LevelCard'
+import { useLevelUp } from '../components/gamification/useLevelUp'
 import AchievementList from '../components/gamification/Achievements'
 
 const studyForOptions = ['University', 'High school', 'Certification', 'Self-study']
@@ -55,6 +56,7 @@ export default function Profile() {
   // null = loading, false = failed (sections hidden)
   const [xpSummary, setXpSummary] = useState(null)
   const [achievements, setAchievements] = useState(null)
+  const [levelUpModal, checkForLevelUp] = useLevelUp()
 
   useEffect(() => {
     let cancelled = false
@@ -62,12 +64,16 @@ export default function Profile() {
       .then(({ items }) => !cancelled && setAchievements(items))
       .catch(() => !cancelled && setAchievements(false))
       .then(() => getXpSummary())
-      .then((s) => !cancelled && setXpSummary(s))
+      .then((s) => {
+        if (cancelled) return
+        setXpSummary(s)
+        checkForLevelUp(s.totalXp)
+      })
       .catch(() => !cancelled && setXpSummary(false))
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [checkForLevelUp])
 
   useEffect(() => {
     let cancelled = false
@@ -122,6 +128,7 @@ export default function Profile() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto flex flex-col gap-4 pb-16">
+      {levelUpModal}
       <div>
         <h1 className="text-xl md:text-2xl font-semibold text-neutral-900">Profile</h1>
         <p className="text-sm text-neutral-500 mt-0.5">Your account and study identity.</p>

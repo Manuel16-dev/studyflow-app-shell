@@ -5,11 +5,11 @@
 // between epoch-ms (what fsrs.js works in) and timestamptz (Postgres).
 import { supabase } from './supabaseClient'
 import { requireUserId } from './authHelpers'
-import { newCardState } from './fsrs'
+import { newCardState, inferState, inferStep } from './fsrs'
 
 function rowToState(row) {
   if (!row) return newCardState()
-  return {
+  const stored = {
     stability: row.stability,
     difficulty: row.difficulty,
     reps: row.reps,
@@ -17,6 +17,10 @@ function rowToState(row) {
     due: row.due ? new Date(row.due).getTime() : null,
     lastReview: row.last_review ? new Date(row.last_review).getTime() : null,
   }
+  // The card's state (new / learning / review / relearning) and learning step
+  // aren't stored: fsrs.js derives them from the fields above, so no extra
+  // column is needed. saveCardState below ignores the two derived fields.
+  return { ...stored, state: inferState(stored), step: inferStep(stored) }
 }
 
 export async function getCardState(cardId) {
